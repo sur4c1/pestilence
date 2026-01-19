@@ -1,0 +1,1 @@
+SRCS = libasm/ft_close libasm/ft_exit libasm/ft_fork libasm/ft_fstat libasm/ft_ftruncate libasm/ft_getdents64 libasm/ft_mmap libasm/ft_lstat libasm/ft_mremap libasm/ft_open libasm/ft_msync libasm/ft_setsid libasm/ft_munmap libasm/ft_write func pestilence signature

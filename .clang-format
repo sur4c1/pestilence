@@ -1,0 +1,34 @@
+BasedOnStyle: LLVM
+UseTab: Always
+IndentWidth: 4
+TabWidth: 4
+BreakBeforeBraces: Allman
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: false
+ColumnLimit: 80
+AccessModifierOffset: -4
+NamespaceIndentation: All
+FixNamespaceComments: false
+#ReflowComments: false
+
+AlignConsecutiveBitFields:
+    Enabled: true
+    AcrossEmptyLines: true
+    AcrossComments: true
+
+AlignConsecutiveDeclarations:
+    Enabled: true
+    AcrossEmptyLines: true
+    AcrossComments: true
+    AlignFunctionDeclarations: false
+
+AlignConsecutiveMacros:
+    Enabled: true
+    AcrossEmptyLines: true
+    AcrossComments: true
+
+#AlignTrailingComments:
+#    Kind: Always
+
+BreakBeforeBinaryOperators: All
+SpaceAfterCStyleCast: true
