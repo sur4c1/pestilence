@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 13:20:22 by yyyyyy            #+#    #+#             */
-/*   Updated: 2024/10/16 13:47:37 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/20 18:20:33 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,21 +15,23 @@
 
 struct stat;
 
-int		ft_setsid(void);
-int		ft_fork(void);
-int		ft_open(char *path, int flags, ...);
-int		ft_getdents64(int fd, char *buffer, int buff_size);
-int		ft_lstat(const char *pathname, struct stat *statbuf);
-int		ft_close(int fd);
-int		ft_munmap(void *addr, unsigned long length);
-void	*ft_mmap(void *addr, unsigned long length, int prot, int flags,
-			int fd, off_t offset);
-int		ft_msync(void *addr, unsigned long length, int flags);
-int		ft_fstat(int fd, struct stat *statbuf);
-int		ft_ftruncate(int fd, off_t length);
-void	*ft_mremap(void *old_address, unsigned long old_size,
-			unsigned long new_size, int flags, ... /* void *new_address */);
-void	ft_exit(int status);
-void	ft_write(int fd, void *buf, unsigned count);
+int ft_setsid(void);
+int ft_fork(void);
+int ft_ptrace(int request, int pid, void *addr, void *data);
+int ft_open(char *path, int flags, ...);
+int ft_getdents64(int fd, char *buffer, int buff_size);
+int ft_lstat(const char *pathname, struct stat *statbuf);
+int ft_close(int fd);
+int ft_munmap(void *addr, unsigned long length);
+void *ft_mmap(void *addr, unsigned long length, int prot, int flags, int fd,
+			  off_t offset);
+int ft_msync(void *addr, unsigned long length, int flags);
+int ft_fstat(int fd, struct stat *statbuf);
+int ft_ftruncate(int fd, off_t length);
+void *ft_mremap(void *old_address, unsigned long old_size,
+				unsigned long new_size, int flags, ... /* void *new_address */);
+void ft_exit(int status);
+void ft_write(int fd, void *buf, unsigned count);
+ssize_t ft_read(int fd, const void *buf, size_t count);
 
 #endif

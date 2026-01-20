@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/19 17:32:53 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/20 15:13:42 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,6 +55,19 @@ void *memcpy(void *dst, void *src, unsigned n)
 		}
 	}
 	return (dst);
+}
+
+char *ft_strchr(const char *s, int c)
+{
+	while (*s)
+	{
+		if (*s == c)
+			return ((char *) s);
+		s++;
+	}
+	if (c == '\0')
+		return ((char *) s);
+	return (NULL);
 }
 
 void *ft_memmove(void *dst, const void *src, size_t len)
@@ -131,6 +144,45 @@ void ft_bzero(void *s, unsigned n)
 		s++;
 		i++;
 	}
+}
+
+int ft_isdigit(int c) { return ((c >= '0' && c <= '9')); }
+
+int ft_isspace(char c)
+{
+	return (c == ' ' || c == '\n' || c == '\f' || c == '\r' || c == '\t'
+			|| c == '\v');
+}
+
+#define S32_MAX 0x7FFFFFFF
+int ft_atoi(const char *str)
+{
+	const char	*current;
+	int			 sign;
+	unsigned int value;
+
+	value = 0;
+	sign = 1;
+	current = str;
+	while (ft_isspace(*current))
+		current++;
+	while (*current == '+' || *current == '-')
+	{
+		if (*current == '-')
+			sign *= -1;
+		current++;
+	}
+	while (ft_isdigit(*current))
+	{
+		if (value > S32_MAX / 10
+			|| (value == S32_MAX / 10
+				&& *current - '0' > (S32_MAX % 10) + (1 - sign) / 2))
+			break;
+		value *= 10;
+		value += *current - '0';
+		current++;
+	}
+	return (sign * value);
 }
 
 uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
