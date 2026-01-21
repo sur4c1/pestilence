@@ -1,15 +1,21 @@
 #!zsh
 
-make
+make || exit
 cc -w test/hello.c -o hello
 mkdir -p /tmp/test
 cp hello /tmp/test/hello
+cp /bin/ls /tmp/test/ls
 ./pestilence || (echo fuck segfaulted && exit)
 
 echo "\n\nRunning Original"
 ./hello
+/bin/ls
 echo "\nRunning Norgle'd"
 /tmp/test/hello
+/tmp/test/ls
 
 echo "\n\n\t\tHEADER DIFF"
 diff -W200 -y --color=always <(readelf --headers hello) <(readelf --headers /tmp/test/hello)
+
+
+

@@ -9,13 +9,14 @@ SDIR	=	srcs/
 OBJS	=	$(addsuffix .o, $(addprefix $(ODIR), $(SRCS)))
 
 CFLAGS	=	-I$(IDIR)
+CFLAGS	+=	-Werror
 CFLAGS	+=	-nostdlib -fno-builtin
-CFLAGS		+= -g
-CFLAGS		+= -Oz
-CFLAGS		+= -fomit-frame-pointer
-CFLAGS		+= -fno-unroll-loops
-CFLAGS		+= -fno-asynchronous-unwind-tables
-CFLAGS		+= -fno-merge-all-constants
+CFLAGS	+= -g
+CFLAGS	+= -Oz
+CFLAGS	+= -fomit-frame-pointer
+CFLAGS	+= -fno-unroll-loops
+CFLAGS	+= -fno-asynchronous-unwind-tables
+CFLAGS	+= -fno-merge-all-constants
 NFLAGS	=	-f elf64
 
 CC		=	@cc
