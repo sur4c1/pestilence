@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/20 15:13:42 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/22 17:03:59 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,55 @@
 
 int errno;
 
+/*START OBFS STRCMP*/
+
 int ft_strncmp(const char *s1, const char *s2, unsigned n)
+{
+	unsigned	  i = 0;
+	unsigned	  limit = n ? (n - 1) : 0;
+	unsigned char c1 = 0, c2 = 0;
+	int			  result = 0;
+
+	int			  state = 0;
+
+	static void	 *jt[] = {&&S_CHECK, &&S_LOAD, &&S_CMP, &&S_ADV, &&S_DONE};
+
+	goto		 *jt[state];
+
+S_CHECK:
+	if (i <= limit)
+		state = 1;
+	else
+		state = 4;
+	goto *jt[state];
+
+S_LOAD:
+	c1 = *(unsigned char *) ((uintptr_t) s1 + i);
+	c2 = *(unsigned char *) ((uintptr_t) s2 + i);
+	state = 2;
+	goto *jt[state];
+
+S_CMP:
+	if (c1 && c2 && ((c1 ^ c2) == 0))
+		state = 3;
+	else
+		state = 4;
+	goto *jt[state];
+
+S_ADV:
+	i += 1;
+	state = 0;
+	goto *jt[state];
+
+S_DONE:
+	if (n)
+		result = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
+	return result;
+}
+
+/*END OBFS STRCMP*/
+
+int t_ft_strncmp(const char *s1, const char *s2, unsigned n)
 {
 	unsigned i;
 
@@ -208,4 +256,14 @@ uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 				 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "memory");
 
 	return result;
+}
+
+void ft_putchar(char c) { ft_write(1, &c, 1); }
+
+void ft_putnbr(unsigned long long nb)
+{
+	if (nb >= 10)
+		ft_putnbr(nb / 10);
+	if (nb >= 0)
+		ft_putchar(nb % 10 + '0');
 }

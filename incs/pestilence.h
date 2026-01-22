@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/01/20 15:37:55 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/22 17:04:34 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,14 +39,6 @@ typedef enum e_stat
 	OK,
 	KO,
 } t_stat;
-
-typedef struct s_file
-{
-	int		 fd;
-	char	*data;
-	unsigned size;
-	t_stat	 stat;
-} t_file;
 
 struct linux_dirent64
 {
@@ -99,5 +91,7 @@ void ft_bzero(void *s, unsigned n);
 int ft_atoi(const char *str);
 uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 					uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
+void ft_putchar(char c);
+void ft_putnbr(unsigned long long nb);
 
 #endif

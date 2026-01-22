@@ -1,28 +1,28 @@
 include source.mk
 
-NAME	=	pestilence
+NAME	 =	pestilence
+NAME_OBF =	pestilence_obfuscated
 
-ODIR	=	objs/
-IDIR	=	incs/
-SDIR	=	srcs/
+ODIR	 =	objs/
+IDIR	 =	incs/
+SDIR	 =	srcs/
 
-OBJS	=	$(addsuffix .o, $(addprefix $(ODIR), $(SRCS)))
+OBJS	 =	$(addsuffix .o, $(addprefix $(ODIR), $(SRCS)))
 
-CFLAGS	=	-I$(IDIR)
-CFLAGS	+=	-Werror
-CFLAGS	+=	-nostdlib -fno-builtin
-CFLAGS	+= -g
-CFLAGS	+= -Oz
-CFLAGS	+= -fomit-frame-pointer
-CFLAGS	+= -fno-unroll-loops
-CFLAGS	+= -fno-asynchronous-unwind-tables
-CFLAGS	+= -fno-merge-all-constants
-NFLAGS	=	-f elf64
+CFLAGS   =	-I$(IDIR)
+CFLAGS	 +=	-Wall -Werror -fno-plt
+CFLAGS	 +=	-nostdlib -fno-builtin
+CFLAGS	 += -g # TODO: remove
+CFLAGS	 += -O2 -finline-functions
+CFLAGS 	 += -fomit-frame-pointer
+CFLAGS	 += -fno-asynchronous-unwind-tables
+CFLAGS	 += -fno-merge-all-constants
+NFLAGS  	=	-f elf64
 
-CC		=	@cc
-RM		=	@rm -rf
-MKDIR	=	@mkdir -p
-NASM	=	@nasm
+CC		 =	@cc
+RM		 =	@rm -rf
+MKDIR	 =	@mkdir -p
+NASM	 =	@nasm
 
 # ASM_DIR	=	libasm/
 # ASM_SRC	=	ft_setsid.s ft_fork.s ft_open.s ft_getdents64.s ft_lstat.s \
@@ -54,14 +54,14 @@ $(ODIR)%.o:  $(SDIR)/%.s
 	$(MKDIR) $(dir $@)
 	$(NASM) $(NFLAGS) $< -o $@
 
+$(NAME_OBF): $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $@
+	strip --strip-all $(NAME_OBF)
+	objcopy \
+	  --remove-section .comment \
+	  --remove-section .note \
+	 $(NAME_OBF)
+
+
 .PHONY: all clean fclean re
 
-
-
-# %.o:	%.c
-# 	@$(CC) $(CFLAGS) -c -o $@ $<
-# 	@printf $(ERRASE_LINE)$(OBJ_COLOR)"\t"$@"\e[m"
-
-# %.o:	%.s
-# 	@nasm -f elf64 -o $@ $<
-# 	@printf $(ERRASE_LINE)$(OBJ_COLOR)"\t"$@"\e[m"

@@ -14,8 +14,14 @@ echo "\nRunning Norgle'd"
 /tmp/test/hello
 /tmp/test/ls
 
-echo "\n\n\t\tHEADER DIFF"
+# echo "\n\n\t\tHEADER DIFF"
 diff -W200 -y --color=always <(readelf --headers hello) <(readelf --headers /tmp/test/hello)
+# diff -y -W200 <(readelf -d hello) <(readelf -d /tmp/test/hello)
+# diff -y -W200 <(hexdump -C -s 0x318 -n 0x200 hello) <(hexdump -C -s 0x350 -n 0x200 /tmp/test/hello)
 
+# echo "\n\n\t\t LS DIFFS"
+# diff -W200 -y --color=always <(readelf --headers /bin/ls) <(readelf --headers /tmp/test/ls)
+# diff -y -W200 <(readelf -d /bin/ls) <(readelf -d /tmp/test/ls)
+# diff -y -W200 <(hexdump -C -s 0x318 -n 0x200 /bin/ls) <(hexdump -C -s 0x318 -n 0x200 /tmp/test/ls)
 
 
