@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/22 17:03:59 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/23 13:21:07 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -79,6 +79,7 @@ int t_ft_strncmp(const char *s1, const char *s2, unsigned n)
 
 int ft_strcmp(const char *s1, const char *s2)
 {
+	return ft_strncmp(s1, s2, ft_strlen(s1) + 1);
 	int i;
 
 	i = 0;
@@ -89,6 +90,16 @@ int ft_strcmp(const char *s1, const char *s2)
 	}
 	return ((unsigned char) s1[i] - (unsigned char) s2[i]);
 }
+
+int ft_strlen(const char *str)
+{
+	const char *s;
+	s = str;
+	while (*s)
+		s++;
+	return (s - str);
+}
+
 void *memcpy(void *dst, void *src, unsigned n)
 {
 	unsigned i;

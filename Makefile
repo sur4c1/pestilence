@@ -10,7 +10,7 @@ SDIR	 =	srcs/
 OBJS	 =	$(addsuffix .o, $(addprefix $(ODIR), $(SRCS)))
 
 CFLAGS   =	-I$(IDIR)
-CFLAGS	 +=	-Wall -Werror -fno-plt
+CFLAGS	 +=	-Werror -fno-plt
 CFLAGS	 +=	-nostdlib -fno-builtin
 CFLAGS	 += -g # TODO: remove
 CFLAGS	 += -O2 -finline-functions

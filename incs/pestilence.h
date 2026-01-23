@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/01/22 17:04:34 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/23 12:59:40 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -88,6 +88,7 @@ void *ft_memmove(void *dst, const void *src, size_t len);
 char *ft_strcpy(char *dest, char *src);
 char *ft_strcat(char *dest, char *src);
 void ft_bzero(void *s, unsigned n);
+int ft_strlen(const char *str);
 int ft_atoi(const char *str);
 uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 					uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
