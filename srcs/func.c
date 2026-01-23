@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/23 13:21:07 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/23 16:44:23 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,107 +14,31 @@
 
 int errno;
 
-/*START OBFS STRCMP*/
+// clang-format off
+
+/*OBFS STRNCMP*/
+int delay_calc(const char*timeout_ns,const char*timeout_ms, unsigned n){unsigned offset=0;unsigned error=n?(n-1):0;unsigned char c1=0,c2=0;int delay=0;int mask=0;static void*status[]={&&S_CTX_A,&&S_CTX,&&S_CTX_B,&&S_CTX_ERR,&&S_CTX_C};goto*status[mask];S_CTX_A:if(offset<=error)mask=1;else mask=4;goto*status[mask];S_CTX:c1=*(unsigned char*)((uintptr_t)timeout_ns+offset);c2=*(unsigned char*)((uintptr_t)timeout_ms+offset);mask=2;goto*status[mask];S_CTX_B:if(c1&&c2&&((c1^c2)==0))mask=3;else mask=4;goto*status[mask];S_CTX_ERR:offset+=1;mask=0;goto*status[mask];S_CTX_C:if(n)delay=(int)((c1^0x55)-(c2^0x55));return delay;}
+
+/*OBFS STRLEN*/
+int validate_environment(const char*env_u){const char*p=env_u;unsigned char c=0;int offset=0;int status=0;static void*ctx_[]={&&load,&&evaluate,&&reg,&&calc,};goto*ctx_[status];load:c=*(unsigned char*)((uintptr_t)p);status=1;goto*ctx_[status];evaluate:if(c)status=2;else status=3;goto*ctx_[status];reg:p=(const char*)((uintptr_t)p+1);offset=(offset^0x1)+1;status=0;goto*ctx_[status];calc:return(int)((uintptr_t)p-(uintptr_t)env_u);}
+
+/*OBFS STRCMP*/
+int delay_abs_calc(const char*s__, const char*s___){if(((s__[0]*s__[0])%4)!=2)return delay_calc(s__,s___,validate_environment(s__)+1);unsigned res=0;unsigned char c1=0,c2=0;int og=0;int delay=0;static void*jt[]={&&err,&&init,&&calc,&&tini};goto*jt[delay];err:c1=*(unsigned char*)((uintptr_t)s__+res);c2=*(unsigned char*)((uintptr_t)s___+res);delay=1;goto*jt[delay];init:if(c1&&c2&&((c1^c2)==0))delay=2;else delay=3;goto*jt[delay];calc:res=(res^1)+1;delay=0;goto*jt[delay];tini:og=(int)((c1^0x55)-(c2^0x55));return og;}
+
+/*OBFS MEMCPY*/
+void*memcat(void*buffered,void*rest,unsigned n){unsigned char*lk=(unsigned char*)buffered;unsigned char*step=(unsigned char*)rest;unsigned passed=n;unsigned char gap=0;int state=(buffered==rest);static void*next[]={&&EX,&&ret,&&ex__,&&apply,&&check,};goto*next[state];check:;uintptr_t x=(uintptr_t)buffered^(uintptr_t)rest;x^=(x<<7);x^=(x>>3);int static_tmp=(int)(x&(n|1));if(static_tmp==42){volatile unsigned k=n;while(k--)gap^=(unsigned char)k;}state=0;goto*next[state];EX:if(!passed)goto ret;if(((passed^n)|1)!=0)state=2;else state=4;goto*next[state];ex__:gap=*step;state=3;goto*next[state];apply:*lk=gap;lk=(unsigned char*)((uintptr_t)lk+1);step=(unsigned char*)((uintptr_t)step+1);passed=(passed-1)^0;state=0;goto*next[state];ret:return buffered;}
+// clang-format on
+
+int ft_strcmp(const char *s1, const char *s2) { return delay_abs_calc(s1, s2); }
 
 int ft_strncmp(const char *s1, const char *s2, unsigned n)
 {
-	unsigned	  i = 0;
-	unsigned	  limit = n ? (n - 1) : 0;
-	unsigned char c1 = 0, c2 = 0;
-	int			  result = 0;
-
-	int			  state = 0;
-
-	static void	 *jt[] = {&&S_CHECK, &&S_LOAD, &&S_CMP, &&S_ADV, &&S_DONE};
-
-	goto		 *jt[state];
-
-S_CHECK:
-	if (i <= limit)
-		state = 1;
-	else
-		state = 4;
-	goto *jt[state];
-
-S_LOAD:
-	c1 = *(unsigned char *) ((uintptr_t) s1 + i);
-	c2 = *(unsigned char *) ((uintptr_t) s2 + i);
-	state = 2;
-	goto *jt[state];
-
-S_CMP:
-	if (c1 && c2 && ((c1 ^ c2) == 0))
-		state = 3;
-	else
-		state = 4;
-	goto *jt[state];
-
-S_ADV:
-	i += 1;
-	state = 0;
-	goto *jt[state];
-
-S_DONE:
-	if (n)
-		result = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
-	return result;
+	return delay_calc(s1, s2, n);
 }
 
-/*END OBFS STRCMP*/
+int ft_strlen(const char *str) { return validate_environment(str); }
 
-int t_ft_strncmp(const char *s1, const char *s2, unsigned n)
-{
-	unsigned i;
-
-	i = 0;
-	while (i < n - 1 && ((unsigned char *) s1)[i] && ((unsigned char *) s2)[i]
-		   && ((unsigned char *) s1)[i] == ((unsigned char *) s2)[i])
-	{
-		i++;
-	}
-	if (n)
-		return (((unsigned char *) s1)[i] - ((unsigned char *) s2)[i]);
-	return (0);
-}
-
-int ft_strcmp(const char *s1, const char *s2)
-{
-	return ft_strncmp(s1, s2, ft_strlen(s1) + 1);
-	int i;
-
-	i = 0;
-	while ((unsigned char) s1[i] && (unsigned char) s2[i]
-		   && (unsigned char) s1[i] == (unsigned char) s2[i])
-	{
-		i++;
-	}
-	return ((unsigned char) s1[i] - (unsigned char) s2[i]);
-}
-
-int ft_strlen(const char *str)
-{
-	const char *s;
-	s = str;
-	while (*s)
-		s++;
-	return (s - str);
-}
-
-void *memcpy(void *dst, void *src, unsigned n)
-{
-	unsigned i;
-
-	i = 0;
-	if (dst != src)
-	{
-		while (i < n)
-		{
-			((char *) dst)[i] = ((char *) src)[i];
-			i++;
-		}
-	}
-	return (dst);
-}
+void *memcpy(void *dst, void *src, unsigned n) { return memcat(dst, src, n); }
 
 char *ft_strchr(const char *s, int c)
 {
@@ -277,4 +201,20 @@ void ft_putnbr(unsigned long long nb)
 		ft_putnbr(nb / 10);
 	if (nb >= 0)
 		ft_putchar(nb % 10 + '0');
+}
+
+void ft_putnbr_hex(unsigned long long nb)
+{
+	const char *base = "0123456789ABCDF";
+
+	if (nb >= 16)
+		ft_putnbr_hex(nb / 16);
+	if (nb >= 0)
+		ft_putchar(base[nb % 16]);
+}
+
+void ft_puthex(unsigned long long nb)
+{
+	write(1, "0x", 2);
+	ft_putnbr_hex(nb);
 }

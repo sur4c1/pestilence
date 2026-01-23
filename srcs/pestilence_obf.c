@@ -269,7 +269,7 @@ int is_program_running(const char *target)
 						char *nl = ft_strchr(pname, '\n');
 						if (nl)
 							*nl = '\0';
-						if (ft_strcmp(pname, target) == 0)
+						if (ft_strncmp(pname, target, 80) == 0)
 						{
 							ft_close(fd);
 							return 1;

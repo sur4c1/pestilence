@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/01/23 12:59:40 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/01/23 18:07:44 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -94,5 +94,5 @@ uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 					uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
 void ft_putchar(char c);
 void ft_putnbr(unsigned long long nb);
-
+void ft_puthex(unsigned long long nb);
 #endif
