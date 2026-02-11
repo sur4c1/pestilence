@@ -45,7 +45,7 @@ fclean: clean
 
 re: fclean all
 
-$(ODIR)%.o:  $(SDIR)/%.c
+$(ODIR)%.o:  $(SDIR)%.c
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
