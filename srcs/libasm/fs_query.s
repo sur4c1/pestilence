@@ -1,10 +1,8 @@
-;; LSTAT
-
-global ft_lstat
+global fs_query
 
 SECTION .text
 
-ft_lstat:
+fs_query:
 	mov rax, 6
 	syscall
 	ret

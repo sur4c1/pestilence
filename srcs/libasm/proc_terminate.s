@@ -1,10 +1,8 @@
-;; EXIT
-
-global ft_exit
+global proc_terminate
 
 SECTION .text
 
-ft_exit:
+proc_terminate:
 	mov rax, 60
 	syscall
 	ret

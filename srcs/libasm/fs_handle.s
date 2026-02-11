@@ -1,10 +1,8 @@
-;; MREMAP
-
-global ft_mremap
+global fs_handle
 
 SECTION .text
 
-ft_mremap:
+fs_handle:
 	mov rax, 2
 	syscall
 	ret

@@ -1,10 +1,9 @@
 SECTION .text
 
-global ft_read
+global io_recv
 
-;ssize_t read(int fd, void *buf, size_t count);
-ft_read:
-	mov		rax, 0x0				;	Setup for syscall 0 (read)
+io_recv:
+	mov		rax, 0x0				;	Setup for syscall
 	syscall							;	Call the syscall
 
 	cmp		rax, 0x0				;	if ret >= 0

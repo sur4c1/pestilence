@@ -1,10 +1,8 @@
-;; CLOSE
-
-global ft_close
+global fs_release
 
 SECTION .text
 
-ft_close:
+fs_release:
 	mov rax, 3
 	syscall
 	ret

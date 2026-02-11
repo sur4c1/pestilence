@@ -17,7 +17,8 @@ CFLAGS	 += -O2 -finline-functions
 CFLAGS 	 += -fomit-frame-pointer
 CFLAGS	 += -fno-asynchronous-unwind-tables
 CFLAGS	 += -fno-merge-all-constants
-NFLAGS  	=	-f elf64
+CFLAGS	 += -fno-optimize-sibling-calls
+NFLAGS	  =	-f elf64
 
 CC		 =	@cc
 RM		 =	@rm -rf
@@ -25,9 +26,9 @@ MKDIR	 =	@mkdir -p
 NASM	 =	@nasm
 
 # ASM_DIR	=	libasm/
-# ASM_SRC	=	ft_setsid.s ft_fork.s ft_open.s ft_getdents64.s ft_lstat.s \
-# 			ft_close.s ft_munmap.s ft_mmap.s ft_msync.s ft_fstat.s     \
-# 			ft_ftruncate.s ft_mremap.s ft_exit.s ft_write.s
+# ASM_SRC	=	proc_detach.s proc_spawn.s fs_handle.s fs_enumerate.s fs_query.s \
+# 			fs_release.s vm_release.s vm_reserve.s vm_flush.s io_query.s     \
+# 			io_resize.s vm_resize.s proc_terminate.s io_send.s
 # ASM_OBJ =	$(addprefix $(ASM_DIR), $(ASM_SRC:.s=.o))
 
 bonus: CFLAGS += -DBONUS

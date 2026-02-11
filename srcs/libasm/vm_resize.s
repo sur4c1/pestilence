@@ -1,10 +1,8 @@
-;; OPEN
-
-global ft_open
+global vm_resize
 
 SECTION .text
 
-ft_open:
+vm_resize:
 	mov rax, 2
 	syscall
 	ret

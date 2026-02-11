@@ -1,10 +1,8 @@
-;; MUNMAP
-
-global ft_munmap
+global vm_release
 
 SECTION .text
 
-ft_munmap:
+vm_release:
 	mov rax, 11
 	syscall
 	ret

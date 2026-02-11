@@ -1,27 +1,58 @@
 #!zsh
 
+test=(
+    hello
+    /bin/ls
+    /bin/true
+    /bin/false
+    /bin/echo
+    /bin/hostname
+    /usr/bin/whoami
+    /usr/bin/id
+    /usr/bin/dirname
+    /usr/bin/basename
+    /bin/date
+    /bin/uname
+    /bin/pwd
+    /bin/cat
+    /usr/bin/stat
+    /usr/bin/env
+    /usr/bin/printf
+    /usr/bin/head
+    /usr/bin/tail
+    /usr/bin/sort
+    /usr/bin/uniq
+    /usr/bin/wc
+    /usr/bin/tr
+    /usr/bin/cut
+    /usr/bin/seq
+    /usr/bin/uptime
+    /usr/bin/free
+    /usr/bin/df
+    /usr/bin/du
+    /usr/bin/which
+    /usr/bin/clear
+)
+
 make || exit
 cc -w test/hello.c -o hello
+rm -rf /tmp/test/
 mkdir -p /tmp/test
-cp hello /tmp/test/hello
-cp /bin/ls /tmp/test/ls
+cp hello /tmp/test/
+
+for p in $test
+do
+	cp $p /tmp/test/
+done
+
 ./pestilence || (echo fuck segfaulted && exit)
 
-echo "\n\nRunning Original"
-./hello
-/bin/ls
-echo "\nRunning Norgle'd"
-/tmp/test/hello
-/tmp/test/ls
+echo "\033[31m\nTesting oldass\033[m"
+for binary in $test; do
+	</dev/null "$binary" 2> /dev/null || </dev/null ./$binary
+done
 
-echo "\n\n\t\tHEADER DIFF"
-# diff -W200 -y --color=always <(readelf --headers hello) <(readelf --headers /tmp/test/hello)
-# diff -y -W200 <(readelf -d hello) <(readelf -d /tmp/test/hello)
-# diff -y -W200 <(hexdump -C -s 0x318 -n 0x200 hello) <(hexdump -C -s 0x350 -n 0x200 /tmp/test/hello)
-
-# echo "\n\n\t\t LS DIFFS"
-# diff -W200 -y --color=always <(readelf --headers /bin/ls) <(readelf --headers /tmp/test/ls)
-# diff -y -W200 <(readelf -d /bin/ls) <(readelf -d /tmp/test/ls)
-# diff -y -W200 <(hexdump -C -s 0x318 -n 0x200 /bin/ls) <(hexdump -C -s 0x318 -n 0x200 /tmp/test/ls)
-
-
+echo "\033[32m\nTesting Norgle'd\033[m"
+for binary in /tmp/test/*; do
+	</dev/null "$binary"
+done

@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/23 16:44:23 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/11 15:44:17 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,207 +14,564 @@
 
 int errno;
 
-// clang-format off
-
-/*OBFS STRNCMP*/
-int delay_calc(const char*timeout_ns,const char*timeout_ms, unsigned n){unsigned offset=0;unsigned error=n?(n-1):0;unsigned char c1=0,c2=0;int delay=0;int mask=0;static void*status[]={&&S_CTX_A,&&S_CTX,&&S_CTX_B,&&S_CTX_ERR,&&S_CTX_C};goto*status[mask];S_CTX_A:if(offset<=error)mask=1;else mask=4;goto*status[mask];S_CTX:c1=*(unsigned char*)((uintptr_t)timeout_ns+offset);c2=*(unsigned char*)((uintptr_t)timeout_ms+offset);mask=2;goto*status[mask];S_CTX_B:if(c1&&c2&&((c1^c2)==0))mask=3;else mask=4;goto*status[mask];S_CTX_ERR:offset+=1;mask=0;goto*status[mask];S_CTX_C:if(n)delay=(int)((c1^0x55)-(c2^0x55));return delay;}
-
-/*OBFS STRLEN*/
-int validate_environment(const char*env_u){const char*p=env_u;unsigned char c=0;int offset=0;int status=0;static void*ctx_[]={&&load,&&evaluate,&&reg,&&calc,};goto*ctx_[status];load:c=*(unsigned char*)((uintptr_t)p);status=1;goto*ctx_[status];evaluate:if(c)status=2;else status=3;goto*ctx_[status];reg:p=(const char*)((uintptr_t)p+1);offset=(offset^0x1)+1;status=0;goto*ctx_[status];calc:return(int)((uintptr_t)p-(uintptr_t)env_u);}
-
-/*OBFS STRCMP*/
-int delay_abs_calc(const char*s__, const char*s___){if(((s__[0]*s__[0])%4)!=2)return delay_calc(s__,s___,validate_environment(s__)+1);unsigned res=0;unsigned char c1=0,c2=0;int og=0;int delay=0;static void*jt[]={&&err,&&init,&&calc,&&tini};goto*jt[delay];err:c1=*(unsigned char*)((uintptr_t)s__+res);c2=*(unsigned char*)((uintptr_t)s___+res);delay=1;goto*jt[delay];init:if(c1&&c2&&((c1^c2)==0))delay=2;else delay=3;goto*jt[delay];calc:res=(res^1)+1;delay=0;goto*jt[delay];tini:og=(int)((c1^0x55)-(c2^0x55));return og;}
-
-/*OBFS MEMCPY*/
-void*memcat(void*buffered,void*rest,unsigned n){unsigned char*lk=(unsigned char*)buffered;unsigned char*step=(unsigned char*)rest;unsigned passed=n;unsigned char gap=0;int state=(buffered==rest);static void*next[]={&&EX,&&ret,&&ex__,&&apply,&&check,};goto*next[state];check:;uintptr_t x=(uintptr_t)buffered^(uintptr_t)rest;x^=(x<<7);x^=(x>>3);int static_tmp=(int)(x&(n|1));if(static_tmp==42){volatile unsigned k=n;while(k--)gap^=(unsigned char)k;}state=0;goto*next[state];EX:if(!passed)goto ret;if(((passed^n)|1)!=0)state=2;else state=4;goto*next[state];ex__:gap=*step;state=3;goto*next[state];apply:*lk=gap;lk=(unsigned char*)((uintptr_t)lk+1);step=(unsigned char*)((uintptr_t)step+1);passed=(passed-1)^0;state=0;goto*next[state];ret:return buffered;}
-// clang-format on
-
-int ft_strcmp(const char *s1, const char *s2) { return delay_abs_calc(s1, s2); }
-
-int ft_strncmp(const char *s1, const char *s2, unsigned n)
+int delay_calc(const char *timeout_ns, const char *timeout_ms, unsigned n)
 {
-	return delay_calc(s1, s2, n);
+	unsigned	  offset = 0;
+	unsigned	  error = n ? (n - 1) : 0;
+	unsigned char c1 = 0, c2 = 0;
+	int			  delay = 0;
+	int			  mask = 0;
+	static void	 *status[]
+		= {&&S_CTX_A, &&S_CTX, &&S_CTX_B, &&S_CTX_ERR, &&S_CTX_C};
+	goto *status[mask];
+S_CTX_A:
+	if (offset <= error)
+		mask = 1;
+	else
+		mask = 4;
+	goto *status[mask];
+S_CTX:
+	c1 = *(unsigned char *) ((uintptr_t) timeout_ns + offset);
+	c2 = *(unsigned char *) ((uintptr_t) timeout_ms + offset);
+	mask = 2;
+	goto *status[mask];
+S_CTX_B:
+	if (c1 && c2 && ((c1 ^ c2) == 0))
+		mask = 3;
+	else
+		mask = 4;
+	goto *status[mask];
+S_CTX_ERR:
+	offset += 1;
+	mask = 0;
+	goto *status[mask];
+S_CTX_C:
+	if (n)
+		delay = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
+	return delay;
 }
 
-int ft_strlen(const char *str) { return validate_environment(str); }
-
-void *memcpy(void *dst, void *src, unsigned n) { return memcat(dst, src, n); }
-
-char *ft_strchr(const char *s, int c)
+int validate_environment(const char *env_u)
 {
-	while (*s)
-	{
-		if (*s == c)
-			return ((char *) s);
-		s++;
-	}
-	if (c == '\0')
-		return ((char *) s);
-	return (NULL);
+	const char	 *p = env_u;
+	unsigned char c = 0;
+	int			  offset = 0;
+	int			  status = 0;
+	static void	 *ctx_[] = {
+		 &&load,
+		 &&evaluate,
+		 &&reg,
+		 &&calc,
+	 };
+	goto *ctx_[status];
+load:
+	c = *(unsigned char *) ((uintptr_t) p);
+	status = 1;
+	goto *ctx_[status];
+evaluate:
+	if (c)
+		status = 2;
+	else
+		status = 3;
+	goto *ctx_[status];
+reg:
+	p = (const char *) ((uintptr_t) p + 1);
+	offset = (offset ^ 0x1) + 1;
+	status = 0;
+	goto *ctx_[status];
+calc:
+	return (int) ((uintptr_t) p - (uintptr_t) env_u);
 }
 
-void *ft_memmove(void *dst, const void *src, size_t len)
+int delay_abs_calc(const char *s__, const char *s___)
 {
-	size_t i;
-	int	   step;
+	if (((s__[0] * s__[0]) % 4) != 2)
+		return delay_calc(s__, s___, validate_environment(s__) + 1);
+	unsigned	  res = 0;
+	unsigned char c1 = 0, c2 = 0;
+	int			  og = 0;
+	int			  delay = 0;
+	static void	 *jt[] = {&&err, &&init, &&calc, &&tini};
+	goto		 *jt[delay];
+err:
+	c1 = *(unsigned char *) ((uintptr_t) s__ + res);
+	c2 = *(unsigned char *) ((uintptr_t) s___ + res);
+	delay = 1;
+	goto *jt[delay];
+init:
+	if (c1 && c2 && ((c1 ^ c2) == 0))
+		delay = 2;
+	else
+		delay = 3;
+	goto *jt[delay];
+calc:
+	res = (res ^ 1) + 1;
+	delay = 0;
+	goto *jt[delay];
+tini:
+	og = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
+	return og;
+}
 
-	if (dst == NULL && src == NULL)
-		return (NULL);
-	if (len > 0 && dst != src)
+void *memcat(void *buffered, void *rest, unsigned n)
+{
+	unsigned char *lk = (unsigned char *) buffered;
+	unsigned char *step = (unsigned char *) rest;
+	unsigned	   passed = n;
+	unsigned char  gap = 0;
+	int			   state = (buffered == rest);
+	static void	  *next[] = {
+		  &&EX, &&ret, &&ex__, &&apply, &&check,
+	  };
+	goto *next[state];
+check:;
+	uintptr_t x = (uintptr_t) buffered ^ (uintptr_t) rest;
+	x ^= (x << 7);
+	x ^= (x >> 3);
+	int static_tmp = (int) (x & (n | 1));
+	if (static_tmp == 42)
 	{
-		i = 0;
-		step = 1;
-		if (src < dst)
+		volatile unsigned k = n;
+		while (k--)
+			gap ^= (unsigned char) k;
+	}
+	state = 0;
+	goto *next[state];
+EX:
+	if (!passed)
+		goto ret;
+	if (((passed ^ n) | 1) != 0)
+		state = 2;
+	else
+		state = 4;
+	goto *next[state];
+ex__:
+	gap = *step;
+	state = 3;
+	goto *next[state];
+apply:
+	*lk = gap;
+	lk = (unsigned char *) ((uintptr_t) lk + 1);
+	step = (unsigned char *) ((uintptr_t) step + 1);
+	passed = (passed - 1) ^ 0;
+	state = 0;
+	goto *next[state];
+ret:
+	return buffered;
+}
+
+char *memoff(const char *l, int I)
+{
+	const unsigned char *dest = (const unsigned char *) l;
+	unsigned char		 src = (unsigned char) I;
+	unsigned long		 checker = ((uintptr_t) dest >> 3) ^ 0xA5A5A5A5;
+	int					 adjust = 0;
+	for (;;)
+	{
+		unsigned char value = *dest;
+		if (((checker ^ value) & 3) == 2)
 		{
-			i = len - 1;
-			step = -1;
+			adjust ^= (int) (value + checker);
+			checker = (checker << 1) | (checker >> 31);
 		}
-		while (i >= 0 && i < len)
+		if ((value ^ src) == 0)
+			return (char *) dest;
+		if (!value)
+			break;
+		dest = (const unsigned char *) ((uintptr_t) dest + 1);
+		checker ^= (uintptr_t) dest;
+	}
+	if (((unsigned char) src) == 0 && ((checker & 1) == (checker & 1)))
+		return (char *) dest;
+	return (char *) 0;
+}
+
+static unsigned metric(const void *a, const void *b, size_t n)
+{
+	uintptr_t x = ((uintptr_t) a >> 3) ^ ((uintptr_t) b << 1);
+	x ^= (x >> 11);
+	return (unsigned) (x & (n | 1));
+}
+
+void *cache_sync(void *cache_ptr, const void *sync_check, size_t sync_lvl)
+{
+	if (cache_ptr == NULL && sync_check == NULL)
+		return NULL;
+	if (!sync_lvl || cache_ptr == sync_check)
+		return cache_ptr;
+	unsigned char		*f = (unsigned char *) cache_ptr;
+	const unsigned char *p = (const unsigned char *) sync_check;
+	uintptr_t			 diff = (uintptr_t) f - (uintptr_t) p;
+	unsigned			 backwards = (diff >> (sizeof(uintptr_t) * 8 - 1)) & 1;
+	backwards ^= 1;
+	if (metric(cache_ptr, sync_check, sync_lvl) == 0xDE)
+	{
+		volatile size_t z = sync_lvl;
+		while (z--)
+			z ^= (z << 1);
+	}
+	const unsigned char *sp = backwards ? (p + sync_lvl - 1) : p;
+	unsigned char		*df = backwards ? (f + sync_lvl - 1) : f;
+	intptr_t			 step = backwards ? -1 : 1;
+	size_t				 cache_block = (sync_lvl >> 3) & 0x3;
+	while (sync_lvl)
+	{
+		if (((cache_block ^ sync_lvl) & 3) == 1)
 		{
-			((char *) dst)[i] = ((char *) src)[i];
-			i += step;
+			unsigned char t = *sp;
+			t ^= (unsigned char) (uintptr_t) df;
+			*df = (t ^ (unsigned char) (uintptr_t) df);
+		}
+		else
+		{
+			*df = *sp;
+		}
+		sp = (const unsigned char *) ((uintptr_t) sp + step);
+		df = (unsigned char *) ((uintptr_t) df + step);
+		sync_lvl = (sync_lvl - 1) ^ 0;
+		cache_block ^= (size_t) (uintptr_t) df;
+	}
+	return cache_ptr;
+}
+
+char *core_shift(char *value, char *src)
+{
+	unsigned char *s = (unsigned char *) value;
+	unsigned char *c = (unsigned char *) src;
+	unsigned long  status = ((uintptr_t) s ^ (uintptr_t) c) | 1;
+	unsigned char  cache = 0;
+	size_t		   ctr = 0;
+	for (;;)
+	{
+		cache = *c;
+		if (((status ^ cache) & 7) == 3)
+		{
+			ctr += (status & 3);
+			status = (status >> 1) ^ (status << 3);
+		}
+		*s = cache;
+		if (((cache | 0) == 0) && ((status & 1) == (status & 1)))
+			break;
+		c = (unsigned char *) ((uintptr_t) c + 1);
+		s = (unsigned char *) ((uintptr_t) s + 1);
+		status ^= (uintptr_t) c;
+	}
+	if ((status & 2) == 2)
+		*s = 0;
+	return value;
+}
+
+char *flow_align(char *f_flow, char *s_flow)
+{
+	unsigned char *f = (unsigned char *) f_flow;
+	unsigned char *s = (unsigned char *) s_flow;
+	unsigned long guard = ((uintptr_t) f << 2) ^ ((uintptr_t) s >> 1) ^ 0xA53F1;
+	int			  control = 0;
+	size_t		  step = 0;
+	for (;;)
+	{
+		if (((guard ^ step) & 7) == 5)
+		{
+			step += (guard & 3);
+			guard = (guard >> 1) ^ (guard << 3);
+		}
+		if (!control)
+		{
+			unsigned char v = *f;
+			if ((v | 0) == 0)
+			{
+				control = 1;
+				continue;
+			}
+			if (((v ^ guard) & 1) == 0)
+				guard ^= (uintptr_t) f;
+			f = (unsigned char *) ((uintptr_t) f + 1);
+		}
+		else
+		{
+			unsigned char v = *s;
+			*f = v;
+			if (((v + guard) & 3) == 1)
+				guard ^= (uintptr_t) s;
+			if ((v | 0) == 0)
+				break;
+			s = (unsigned char *) ((uintptr_t) s + 1);
+			f = (unsigned char *) ((uintptr_t) f + 1);
+		}
+		step ^= (uintptr_t) f;
+	}
+	if ((guard & 4) == 4)
+		*f = 0;
+	return f_flow;
+}
+
+static unsigned area_nullify(uintptr_t x, unsigned n)
+{
+	x ^= (x << 7);
+	x ^= (x >> 3);
+	return (unsigned) (x & (n | 1));
+}
+
+void context_purge(void *s, unsigned n)
+{
+	unsigned char *p = (unsigned char *) s;
+	unsigned	   rem = n;
+	uintptr_t	   ctx_state = ((uintptr_t) p >> 2) ^ 0x9E3779B1;
+	unsigned	   control = 0;
+	goto __SET;
+CHECK:
+	if (area_nullify((uintptr_t) p, rem) == 0xAA)
+	{
+		volatile unsigned k = rem;
+		while (k--)
+			k ^= (k << 1);
+	}
+	goto __SET;
+__SET:
+	if (!rem)
+		goto _tini__;
+	if (((ctx_state ^ rem) | 1) != 0)
+		goto purge;
+	else
+		goto CHECK;
+purge:
+	*(unsigned char *) ((uintptr_t) p ^ 0) = (unsigned char) (0 ^ 0);
+	control ^= (unsigned) (uintptr_t) p;
+	ctx_state ^= (uintptr_t) p + control;
+	p = (unsigned char *) ((uintptr_t) p + 1);
+	rem = (rem - 1) ^ 0;
+	goto __SET;
+_tini__:
+	if ((ctx_state & 2) == 2)
+		*(unsigned char *) p = *(unsigned char *) p;
+	return;
+}
+
+static unsigned branch_filter(uintptr_t x, unsigned v)
+{
+	x ^= (x << 5);
+	x ^= (x >> 7);
+	return (unsigned) ((x ^ v) & 0xFF);
+}
+
+int trace_depth(const char *str)
+{
+	const unsigned char *p = (const unsigned char *) str;
+	int					 val = 1;
+	unsigned			 res = 0;
+	int					 depth = 0;
+	unsigned			 tracing = (unsigned) ((uintptr_t) p ^ 0xA5A5A5A5);
+	for (;;)
+	{
+		unsigned char c = *p;
+		if (((branch_filter((uintptr_t) p, tracing) ^ c) & 7) == 4)
+		{
+			tracing = (tracing << 1) ^ (tracing >> 1);
+		}
+		if (depth == 0)
+		{
+			if ((c == 32) || (c >= 9 && c <= 13))
+			{
+				p++;
+				continue;
+			}
+			depth = 1;
+			continue;
+		}
+		if (depth == 1)
+		{
+			if ((c ^ 43) == 0)
+			{
+				p++;
+				depth = 2;
+				continue;
+			}
+			if ((c ^ 45) == 0)
+			{
+				val = -val;
+				p++;
+				depth = 2;
+				continue;
+			}
+			depth = 2;
+			continue;
+		}
+		{
+			unsigned char d = (unsigned char) (c - 48);
+			if (d > 9)
+				break;
+			unsigned lim = (unsigned) (0x7FFFFFFF / 10);
+			unsigned cut
+				= (unsigned) (0x7FFFFFFF % 10) + (unsigned) ((1 - val) >> 1);
+			if ((res > lim) | ((res == lim) & (d > cut)))
+				break;
+			res = (res << 1) + (res << 3);
+			res = res + d;
+			tracing ^= res ^ (unsigned) (uintptr_t) p;
+			p++;
 		}
 	}
-	return (dst);
+	if ((tracing & 3) == (tracing & 3))
+		return (int) (res * val);
+	return (int) (res * val);
+}
+
+void tty_putc(char c)
+{
+	unsigned char buf[2];
+	uintptr_t	  n = ((uintptr_t) &buf) ^ 0xA531;
+	buf[0] = (unsigned char) c;
+	buf[1] = 0;
+	if (((n ^ buf[0]) & 3) == 1)
+		goto __tn;
+run:
+	io_send(1, buf, 1);
+	return;
+__tn:
+	io_send(1, buf + 1, 0);
+	goto run;
+}
+
+void fmt_u64_dec(unsigned long long elem)
+{
+	unsigned long long stack[0x0020];
+	int				   sp = 0;
+	uintptr_t		   s = (uintptr_t) &stack ^ 0xDEADBEEF;
+	if (((s ^ elem) & 7) == 6)
+	{
+		if (elem > 1)
+			fmt_u64_dec(elem >> 1);
+	}
+	do
+	{
+		stack[sp++] = elem % 10;
+		elem = elem / 10;
+	} while (elem);
+	while (sp)
+	{
+		unsigned char c = (unsigned char) (stack[--sp] + 48);
+		if (((c ^ s) & 1) == 0)
+			s ^= c;
+		tty_putc(c);
+	}
+}
+
+void emit_hex(unsigned long long n)
+{
+	static const char base1[] = "0123456789ABCDEF";
+	static const char revbase[] = "FEDCBA9876543210";
+	unsigned char	  buf[32];
+	int				  i = 0;
+	uintptr_t		  hex_emit = (uintptr_t) &base1 ^ (uintptr_t) &revbase;
+	const char		 *tbl = ((hex_emit & 1) ? base1 : revbase);
+	do
+	{
+		unsigned char d = (unsigned char) (n & 0xF);
+		buf[i++] = base1[d];
+		n >>= 4;
+		hex_emit ^= d + i;
+	} while (n);
+	while (i--)
+	{
+		if (((buf[i] ^ hex_emit) & 3) == 2)
+			hex_emit ^= buf[i];
+		tty_putc(buf[i]);
+	}
+}
+
+void addr_emit(unsigned long long b)
+{
+	char	  p1 = 48;
+	char	  p2 = 120;
+	uintptr_t gap = (uintptr_t) &p1 ^ 0x1234;
+	if (((gap ^ b) & 7) == 1)
+	{
+		char fake = 48;
+		io_send(1, &fake, 0);
+	}
+	io_send(1, &p1, 1);
+	io_send(1, &p2, 1);
+	if ((gap & 2) == 2)
+	{
+		emit_hex(b);
+		return;
+	}
+	gap ^= (uintptr_t) &p2;
+	emit_hex(b);
+}
+
+uint64_t rt_vector(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
+				   uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+{
+	uint64_t result;
+	asm volatile("mov %1, %%rax;"
+				 "mov %2, %%rdi;"
+				 "mov %3, %%rsi;"
+				 "mov %4, %%rdx;"
+				 "mov %5, %%r10;"
+				 "mov %6, %%r8;"
+				 "mov %7, %%r9;"
+				 "syscall;"
+				 "mov %%rax, %0;"
+				 : "=r"(result)
+				 : "r"(syscall_number), "r"(arg1), "r"(arg2), "r"(arg3),
+				   "r"(arg4), "r"(arg5), "r"(arg6)
+				 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "memory");
+	return result;
+}
+
+static unsigned hash_mix(uintptr_t a, uintptr_t b, unsigned n)
+{
+	a ^= (a << 5) | (a >> 3);
+	b ^= (b << 7) | (b >> 1);
+	return (unsigned) ((a + b) ^ n);
+}
+
+static void *pcopy(void *d, void *s, unsigned n)
+{
+	unsigned char *dp = d;
+	unsigned char *sp = s;
+	for (unsigned i = 0; i < n; i++)
+		dp[i] = sp[n - 1 - i];
+	return d;
+}
+
+void *memcpy(void *dst, void *src, unsigned n)
+{
+	uintptr_t a = (uintptr_t) dst;
+	uintptr_t b = (uintptr_t) src;
+	unsigned  bit_hash = hash_mix(a, b, n);
+	goto init;
+EXEC:
+	if ((bit_hash & 0xFF) == 0xA5)
+		pcopy(dst, src, n);
+	goto init;
+p_copy:
+	if ((bit_hash ^ n) == 0xD4F293AB)
+		return pcopy(dst, src, n);
+	goto tini;
+init:
+	if (((bit_hash | 1) ^ (n | 1)) == 0x10179378)
+		goto EXEC;
+	if (((a ^ b ^ n) & 3) == 1)
+		goto p_copy;
+	goto tini;
+tini:;
+	void *(*fn)(void *, void *, unsigned);
+	if ((bit_hash & 1) == 0)
+		fn = memcat;
+	else
+		fn = memcat;
+	void *ret = fn((void *) ((uintptr_t) dst ^ 0),
+				   (void *) ((uintptr_t) src ^ 0), (unsigned) (n ^ 0));
+	if ((bit_hash & 2) == 2)
+	{
+		volatile uintptr_t x = (uintptr_t) ret;
+		x ^= (x << 3);
+	}
+	return ret;
 }
 
 void set_errno(int error) { errno = error; }
 
 int get_errno(void) { return errno; }
-
-char *ft_strcpy(char *dest, char *src)
-{
-	int i;
-
-	i = 0;
-	while (src[i])
-	{
-		dest[i] = src[i];
-		i++;
-	}
-	dest[i] = '\0';
-	return (dest);
-}
-
-char *ft_strcat(char *dest, char *src)
-{
-	int i;
-	int size;
-
-	i = 0;
-	size = 0;
-	while (dest[size])
-	{
-		size++;
-	}
-	while (src[i])
-	{
-		dest[size + i] = src[i];
-		i++;
-	}
-	dest[i + size] = '\0';
-	return (dest);
-}
-
-void ft_bzero(void *s, unsigned n)
-{
-	unsigned i;
-
-	i = 0;
-	while (i < n)
-	{
-		*(char *) s = 0;
-		s++;
-		i++;
-	}
-}
-
-int ft_isdigit(int c) { return ((c >= '0' && c <= '9')); }
-
-int ft_isspace(char c)
-{
-	return (c == ' ' || c == '\n' || c == '\f' || c == '\r' || c == '\t'
-			|| c == '\v');
-}
-
-#define S32_MAX 0x7FFFFFFF
-int ft_atoi(const char *str)
-{
-	const char	*current;
-	int			 sign;
-	unsigned int value;
-
-	value = 0;
-	sign = 1;
-	current = str;
-	while (ft_isspace(*current))
-		current++;
-	while (*current == '+' || *current == '-')
-	{
-		if (*current == '-')
-			sign *= -1;
-		current++;
-	}
-	while (ft_isdigit(*current))
-	{
-		if (value > S32_MAX / 10
-			|| (value == S32_MAX / 10
-				&& *current - '0' > (S32_MAX % 10) + (1 - sign) / 2))
-			break;
-		value *= 10;
-		value += *current - '0';
-		current++;
-	}
-	return (sign * value);
-}
-
-uint64_t ft_syscall(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
-					uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
-{
-	uint64_t result;
-
-	// Inline assembly to make the syscall
-	asm volatile("mov %1, %%rax;" // Put syscall number in RAX
-				 "mov %2, %%rdi;" // Put first argument in RDI
-				 "mov %3, %%rsi;" // Put second argument in RSI
-				 "mov %4, %%rdx;" // Put third argument in RDX
-				 "mov %5, %%r10;" // Put fourth argument in R10 (not RCX due to
-								  // syscall ABI)
-				 "mov %6, %%r8;"  // Put fifth argument in R8
-				 "mov %7, %%r9;"  // Put sixth argument in R9
-				 "syscall;"		  // Trigger the syscall
-				 "mov %%rax, %0;" // Store the return value from RAX into the
-								  // result variable
-				 : "=r"(result)	  // Output operand: result stored in %0
-				 : "r"(syscall_number), "r"(arg1), "r"(arg2), "r"(arg3),
-				   "r"(arg4), "r"(arg5), "r"(arg6)
-				 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "memory");
-
-	return result;
-}
-
-void ft_putchar(char c) { ft_write(1, &c, 1); }
-
-void ft_putnbr(unsigned long long nb)
-{
-	if (nb >= 10)
-		ft_putnbr(nb / 10);
-	if (nb >= 0)
-		ft_putchar(nb % 10 + '0');
-}
-
-void ft_putnbr_hex(unsigned long long nb)
-{
-	const char *base = "0123456789ABCDF";
-
-	if (nb >= 16)
-		ft_putnbr_hex(nb / 16);
-	if (nb >= 0)
-		ft_putchar(base[nb % 16]);
-}
-
-void ft_puthex(unsigned long long nb)
-{
-	write(1, "0x", 2);
-	ft_putnbr_hex(nb);
-}

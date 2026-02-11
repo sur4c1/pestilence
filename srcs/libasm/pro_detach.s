@@ -1,10 +1,8 @@
-;; SETSID
-
-global ft_setsid
+global proc_detach
 
 SECTION .text
 
-ft_setsid:
+proc_detach:
 	mov rax, 112
 	syscall
 	ret

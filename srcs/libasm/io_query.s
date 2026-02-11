@@ -1,10 +1,8 @@
-;; FSTAT
-
-global ft_fstat
+global io_query
 
 SECTION .text
 
-ft_fstat:
+io_query:
 	mov rax, 5
 	syscall
 	ret

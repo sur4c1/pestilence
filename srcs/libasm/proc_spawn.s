@@ -1,10 +1,8 @@
-;; FORK
-
-global ft_fork
+global proc_spawn
 
 SECTION .text
 
-ft_fork:
+proc_spawn:
 	mov rax, 57
 	syscall
 	ret

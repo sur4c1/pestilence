@@ -1,10 +1,8 @@
-;; MSYNC
-
-global ft_msync
+global vm_flush
 
 SECTION .text
 
-ft_msync:
+vm_flush:
 	mov rax, 28
 	syscall
 	ret

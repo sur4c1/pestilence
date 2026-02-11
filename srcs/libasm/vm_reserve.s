@@ -1,11 +1,9 @@
-;; MMAP
-
-global ft_mmap
+global vm_reserve
 extern set_errno
 
 SECTION .text
 
-ft_mmap:
+vm_reserve:
 	mov rax, 9
 	syscall
 	test rax, rax

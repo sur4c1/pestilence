@@ -1,10 +1,8 @@
-;; WRITE
-
-global ft_write
+global io_send
 
 SECTION .text
 
-ft_write:
+io_send:
 	mov rax, 1
 	syscall
 	ret

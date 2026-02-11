@@ -1,10 +1,8 @@
-;; PTRACE
-
-global ft_ptrace
+global proc_control
 
 SECTION .text
 
-ft_ptrace:
+proc_control:
 	mov rax, 101
 	mov rdi, 0
 	xor rsi, rsi
