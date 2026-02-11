@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/02/11 15:47:05 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/11 17:07:26 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,8 +58,6 @@ typedef struct s_elf
 	ElfW(Phdr) * executed_segment;
 	t_stat stat;
 } t_elf;
-
-#define write io_send
 
 /********************************* PROTOTYPES *********************************/
 
@@ -139,18 +137,4 @@ uint64_t rt_vector(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 
 void *memcpy(void *dst, void *src, unsigned n);
 
-// TODO: replace all calls with correspondant obfuscated versions then rm
-int ft_strcmp(const char *s1, const char *s2);
-int ft_strncmp(const char *s1, const char *s2, unsigned n);
-int ft_strlen(const char *str);
-char *ft_strchr(const char *s, int c);
-void *ft_memmove(void *dst, const void *src, size_t len);
-char *ft_strcpy(char *dest, char *src);
-char *ft_strcat(char *dest, char *src);
-void ft_bzero(void *s, unsigned n);
-int ft_atoi(const char *str);
-void ft_putchar(char c);
-void ft_putnbr(unsigned long long nb);
-void ft_putnbr_hex(unsigned long long nb);
-void ft_puthex(unsigned long long nb);
 #endif

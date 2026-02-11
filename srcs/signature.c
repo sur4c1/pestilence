@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:20:16 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/01/19 16:34:31 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/11 17:09:43 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,8 +19,8 @@ void signature(char str[])
 			"mov rdx, 43\n"
 			"call memcpy\n"
 			"jmp end_sign\n"
-			"sign_data: .ascii \"\n42 - Pestilence 1.0 (c)oded by "
-			"xxxxxxx-yyyyyy\n\"\n"
+			"sign_data: .ascii \"\nPestilence v1.0 (c)oded by "
+			"xxxxxxx - yyyyyy\n\"\n"
 			"end_sign:\n"
 			:
 			: "rdi"(str)

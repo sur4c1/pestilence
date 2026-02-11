@@ -1,5 +1,4 @@
 global vm_reserve
-extern set_errno
 
 SECTION .text
 
@@ -13,6 +12,5 @@ vm_reserve:
 error:
 	mov rdi, rax
 	neg rdi
-	call set_errno
 	mov rax, -1
 	ret
