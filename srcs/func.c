@@ -6,159 +6,390 @@
 /*   By: yyyyyy <yyyyyy@42.fr>                      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/19 16:16:45 by xxxxxxx           #+#    #+#             */
-/*   Updated: 2026/02/11 17:07:26 by yyyyyy           ###   ########.fr       */
+/*   Updated: 2026/02/13 18:03:10 by yyyyyy           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pestilence.h"
 
-int delay_calc(const char *timeout_ns, const char *timeout_ms, unsigned n)
+static int delay_calc(const char *timeout_ns, const char *timeout_ms,
+					  unsigned n)
 {
 	unsigned	  offset = 0;
 	unsigned	  error = n ? (n - 1) : 0;
 	unsigned char c1 = 0, c2 = 0;
 	int			  delay = 0;
-	int			  mask = 0;
-	static void	 *status[]
-		= {&&S_CTX_A, &&S_CTX, &&S_CTX_B, &&S_CTX_ERR, &&S_CTX_C};
-	goto *status[mask];
-S_CTX_A:
-	if (offset <= error)
-		mask = 1;
-	else
-		mask = 4;
-	goto *status[mask];
-S_CTX:
-	c1 = *(unsigned char *) ((uintptr_t) timeout_ns + offset);
-	c2 = *(unsigned char *) ((uintptr_t) timeout_ms + offset);
-	mask = 2;
-	goto *status[mask];
-S_CTX_B:
-	if (c1 && c2 && ((c1 ^ c2) == 0))
-		mask = 3;
-	else
-		mask = 4;
-	goto *status[mask];
-S_CTX_ERR:
-	offset += 1;
-	mask = 0;
-	goto *status[mask];
-S_CTX_C:
-	if (n)
-		delay = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
-	return delay;
+	int state = 0; // 0=S_CTX_A,1=S_CTX,2=S_CTX_B,3=S_CTX_ERR,4=S_CTX_C
+
+	while (1)
+	{
+		switch (state)
+		{
+		case 0: // S_CTX_A
+			state = (offset <= error) ? 1 : 4;
+			break;
+
+		case 1: // S_CTX
+			c1 = *(unsigned char *) ((uintptr_t) timeout_ns + offset);
+			c2 = *(unsigned char *) ((uintptr_t) timeout_ms + offset);
+			state = 2;
+			break;
+
+		case 2: // S_CTX_B
+			state = (c1 && c2 && ((c1 ^ c2) == 0)) ? 3 : 4;
+			break;
+
+		case 3: // S_CTX_ERR
+			offset += 1;
+			state = 0;
+			break;
+
+		case 4: // S_CTX_C
+			if (n)
+			{
+				if (c1 > c2)
+				{
+					while (c1 != c2)
+					{
+						delay++;
+						c1--;
+					}
+				}
+				else if (c1 < c2)
+				{
+					while (c2 != c1)
+					{
+						delay++;
+						c2--;
+					}
+				}
+			}
+			return delay;
+
+		default:
+			state = 4;
+			break;
+		}
+	}
 }
 
-int validate_environment(const char *env_u)
+// static int delay_calc(const char *timeout_ns, const char *timeout_ms,
+// 					  unsigned n)
+// {
+// 	unsigned	  offset = 0;
+// 	unsigned	  error = n ? (n - 1) : 0;
+// 	unsigned char c1 = 0, c2 = 0;
+// 	int			  delay = 0;
+// 	int			  mask = 0;
+// 	static void	 *status[]
+// 		= {&&S_CTX_A, &&S_CTX, &&S_CTX_B, &&S_CTX_ERR, &&S_CTX_C};
+// 	goto *status[mask];
+// S_CTX_A:
+// 	if (offset <= error)
+// 		mask = 1;
+// 	else
+// 		mask = 4;
+// 	goto *status[mask];
+// S_CTX:
+// 	c1 = *(unsigned char *) ((uintptr_t) timeout_ns + offset);
+// 	c2 = *(unsigned char *) ((uintptr_t) timeout_ms + offset);
+// 	mask = 2;
+// 	goto *status[mask];
+// S_CTX_B:
+// 	if (c1 && c2 && ((c1 ^ c2) == 0))
+// 		mask = 3;
+// 	else
+// 		mask = 4;
+// 	goto *status[mask];
+// S_CTX_ERR:
+// 	offset += 1;
+// 	mask = 0;
+// 	goto *status[mask];
+// S_CTX_C:
+// 	if (n)
+// 	{
+// 		if (c1 > c2)
+// 		{
+// 			while (c1 != c2)
+// 			{
+// 				delay++;
+// 				c1--;
+// 			}
+// 		}
+// 		else if (c1 < c2)
+// 		{
+// 			while (c2 != c1)
+// 			{
+// 				delay++;
+// 				c2--;
+// 			}
+// 		}
+// 	}
+// 	return delay;
+// }
+
+static int validate_environment(const char *env_u)
 {
 	const char	 *p = env_u;
 	unsigned char c = 0;
 	int			  offset = 0;
-	int			  status = 0;
-	static void	 *ctx_[] = {
-		 &&load,
-		 &&evaluate,
-		 &&reg,
-		 &&calc,
-	 };
-	goto *ctx_[status];
-load:
-	c = *(unsigned char *) ((uintptr_t) p);
-	status = 1;
-	goto *ctx_[status];
-evaluate:
-	if (c)
-		status = 2;
-	else
-		status = 3;
-	goto *ctx_[status];
-reg:
-	p = (const char *) ((uintptr_t) p + 1);
-	offset = (offset ^ 0x1) + 1;
-	status = 0;
-	goto *ctx_[status];
-calc:
-	return (int) ((uintptr_t) p - (uintptr_t) env_u);
+	int			  state = 0; // 0=load,1=evaluate,2=reg,3=calc
+
+	while (1)
+	{
+		switch (state)
+		{
+		case 0: // load
+			c = *(unsigned char *) ((uintptr_t) p);
+			state = 1;
+			break;
+
+		case 1: // evaluate
+			state = c ? 2 : 3;
+			break;
+
+		case 2: // reg
+			p = (const char *) ((uintptr_t) p + 1);
+			offset = (offset ^ 0x1) + 1;
+			state = 0;
+			break;
+
+		case 3: // calc
+			return (int) ((uintptr_t) p - (uintptr_t) env_u);
+
+		default:
+			state = 3;
+			break;
+		}
+	}
 }
 
-int delay_abs_calc(const char *s__, const char *s___)
+// static int validate_environment(const char *env_u)
+// {
+// 	const char	 *p = env_u;
+// 	unsigned char c = 0;
+// 	int			  offset = 0;
+// 	int			  status = 0;
+// 	static void	 *ctx_[] = {
+// 		 &&load,
+// 		 &&evaluate,
+// 		 &&reg,
+// 		 &&calc,
+// 	 };
+// 	goto *ctx_[status];
+// load:
+// 	c = *(unsigned char *) ((uintptr_t) p);
+// 	status = 1;
+// 	goto *ctx_[status];
+// evaluate:
+// 	if (c)
+// 		status = 2;
+// 	else
+// 		status = 3;
+// 	goto *ctx_[status];
+// reg:
+// 	p = (const char *) ((uintptr_t) p + 1);
+// 	offset = (offset ^ 0x1) + 1;
+// 	status = 0;
+// 	goto *ctx_[status];
+// calc:
+// 	return (int) ((uintptr_t) p - (uintptr_t) env_u);
+// }
+
+static int delay_abs_calc(const char *s__, const char *s___)
 {
 	if (((s__[0] * s__[0]) % 4) != 2)
 		return delay_calc(s__, s___, validate_environment(s__) + 1);
+
 	unsigned	  res = 0;
 	unsigned char c1 = 0, c2 = 0;
 	int			  og = 0;
 	int			  delay = 0;
-	static void	 *jt[] = {&&err, &&init, &&calc, &&tini};
-	goto		 *jt[delay];
-err:
-	c1 = *(unsigned char *) ((uintptr_t) s__ + res);
-	c2 = *(unsigned char *) ((uintptr_t) s___ + res);
-	delay = 1;
-	goto *jt[delay];
-init:
-	if (c1 && c2 && ((c1 ^ c2) == 0))
-		delay = 2;
-	else
-		delay = 3;
-	goto *jt[delay];
-calc:
-	res = (res ^ 1) + 1;
-	delay = 0;
-	goto *jt[delay];
-tini:
-	og = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
-	return og;
+	int			  state = 0; // 0=err,1=init,2=calc,3=tini
+
+	while (1)
+	{
+		switch (state)
+		{
+		case 0: // err
+			c1 = *(unsigned char *) ((uintptr_t) s__ + res);
+			c2 = *(unsigned char *) ((uintptr_t) s___ + res);
+			state = 1;
+			break;
+
+		case 1: // init
+			state = (c1 && c2 && ((c1 ^ c2) == 0)) ? 2 : 3;
+			break;
+
+		case 2: // calc
+			res = (res ^ 1) + 1;
+			state = 0;
+			break;
+
+		case 3: // tini
+			og = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
+			return og;
+
+		default:
+			state = 3; // fallback to tini
+			break;
+		}
+	}
 }
 
-void *memcat(void *buffered, void *rest, unsigned n)
+// static int delay_abs_calc(const char *s__, const char *s___)
+// {
+// 	if (((s__[0] * s__[0]) % 4) != 2)
+// 		return delay_calc(s__, s___, validate_environment(s__) + 1);
+// 	unsigned	  res = 0;
+// 	unsigned char c1 = 0, c2 = 0;
+// 	int			  og = 0;
+// 	int			  delay = 0;
+// 	static void	 *jt[] = {&&err, &&init, &&calc, &&tini};
+// 	goto		 *jt[delay];
+// err:
+// 	c1 = *(unsigned char *) ((uintptr_t) s__ + res);
+// 	c2 = *(unsigned char *) ((uintptr_t) s___ + res);
+// 	delay = 1;
+// 	goto *jt[delay];
+// init:
+// 	if (c1 && c2 && ((c1 ^ c2) == 0))
+// 		delay = 2;
+// 	else
+// 		delay = 3;
+// 	goto *jt[delay];
+// calc:
+// 	res = (res ^ 1) + 1;
+// 	delay = 0;
+// 	goto *jt[delay];
+// tini:
+// 	og = (int) ((c1 ^ 0x55) - (c2 ^ 0x55));
+// 	return og;
+// }
+
+static void *memcat(void *buffered, void *rest, unsigned n)
 {
 	unsigned char *lk = (unsigned char *) buffered;
 	unsigned char *step = (unsigned char *) rest;
 	unsigned	   passed = n;
 	unsigned char  gap = 0;
-	int			   state = (buffered == rest);
-	static void	  *next[] = {
-		  &&EX, &&ret, &&ex__, &&apply, &&check,
-	  };
-	goto *next[state];
-check:;
-	uintptr_t x = (uintptr_t) buffered ^ (uintptr_t) rest;
-	x ^= (x << 7);
-	x ^= (x >> 3);
-	int static_tmp = (int) (x & (n | 1));
-	if (static_tmp == 42)
+
+	int			   state = (buffered == rest) ? 0 : 1;
+
+	for (;;)
 	{
-		volatile unsigned k = n;
-		while (k--)
-			gap ^= (unsigned char) k;
+		switch (state)
+		{
+		case 0: /* check decoy */
+		{
+			uintptr_t x = (uintptr_t) buffered ^ (uintptr_t) rest;
+			x ^= (x << 7);
+			x ^= (x >> 3);
+			int static_tmp = (int) (x & (n | 1));
+			if (static_tmp == 42)
+			{
+				volatile unsigned k = n;
+				while (k--)
+					gap ^= (unsigned char) k;
+			}
+			state = 1;
+			break;
+		}
+
+		case 1: /* EX: main loop test */
+		{
+			if (!passed)
+				state = 5; /* ret */
+			else if (((passed ^ n) | 1) != 0)
+				state = 2; /* ex__ */
+			else
+				state = 4; /* check */
+			break;
+		}
+
+		case 2: /* ex__: load step */
+		{
+			gap = *step;
+			state = 3; /* apply */
+			break;
+		}
+
+		case 3: /* apply: write and advance */
+		{
+			*lk = gap;
+			lk = (unsigned char *) ((uintptr_t) lk + 1);
+			step = (unsigned char *) ((uintptr_t) step + 1);
+			passed = (passed - 1) ^ 0;
+			state = 1; /* loop back to main test */
+			break;
+		}
+
+		case 4: /* extra decoy check, preserve previous computed-goto noise */
+		{
+			uintptr_t x = (uintptr_t) buffered ^ (uintptr_t) rest;
+			x ^= (x << 5);
+			x ^= (x >> 2);
+			volatile int fake = (int) (x & 0xFF);
+			if (fake == 13)
+				gap ^= 0xAA;
+			state = 1;
+			break;
+		}
+
+		case 5: /* ret */
+			return buffered;
+		}
 	}
-	state = 0;
-	goto *next[state];
-EX:
-	if (!passed)
-		goto ret;
-	if (((passed ^ n) | 1) != 0)
-		state = 2;
-	else
-		state = 4;
-	goto *next[state];
-ex__:
-	gap = *step;
-	state = 3;
-	goto *next[state];
-apply:
-	*lk = gap;
-	lk = (unsigned char *) ((uintptr_t) lk + 1);
-	step = (unsigned char *) ((uintptr_t) step + 1);
-	passed = (passed - 1) ^ 0;
-	state = 0;
-	goto *next[state];
-ret:
-	return buffered;
 }
 
-char *memoff(const char *l, int I)
+// static void *memcat(void *buffered, void *rest, unsigned n)
+// {
+// 	unsigned char *lk = (unsigned char *) buffered;
+// 	unsigned char *step = (unsigned char *) rest;
+// 	unsigned	   passed = n;
+// 	unsigned char  gap = 0;
+// 	int			   state = (buffered == rest);
+// 	static void	  *next[] = {
+// 		  &&EX, &&ret, &&ex__, &&apply, &&check,
+// 	  };
+// 	goto *next[state];
+// check:;
+// 	uintptr_t x = (uintptr_t) buffered ^ (uintptr_t) rest;
+// 	x ^= (x << 7);
+// 	x ^= (x >> 3);
+// 	int static_tmp = (int) (x & (n | 1));
+// 	if (static_tmp == 42)
+// 	{
+// 		volatile unsigned k = n;
+// 		while (k--)
+// 			gap ^= (unsigned char) k;
+// 	}
+// 	state = 0;
+// 	goto *next[state];
+// EX:
+// 	if (!passed)
+// 		goto ret;
+// 	if (((passed ^ n) | 1) != 0)
+// 		state = 2;
+// 	else
+// 		state = 4;
+// 	goto *next[state];
+// ex__:
+// 	gap = *step;
+// 	state = 3;
+// 	goto *next[state];
+// apply:
+// 	*lk = gap;
+// 	lk = (unsigned char *) ((uintptr_t) lk + 1);
+// 	step = (unsigned char *) ((uintptr_t) step + 1);
+// 	passed = (passed - 1) ^ 0;
+// 	state = 0;
+// 	goto *next[state];
+// ret:
+// 	return buffered;
+// }
+
+static char *memoff(const char *l, int I)
 {
 	const unsigned char *dest = (const unsigned char *) l;
 	unsigned char		 src = (unsigned char) I;
@@ -191,7 +422,8 @@ static unsigned metric(const void *a, const void *b, size_t n)
 	return (unsigned) (x & (n | 1));
 }
 
-void *cache_sync(void *cache_ptr, const void *sync_check, size_t sync_lvl)
+static void *cache_sync(void *cache_ptr, const void *sync_check,
+						size_t sync_lvl)
 {
 	if (cache_ptr == NULL && sync_check == NULL)
 		return NULL;
@@ -232,7 +464,7 @@ void *cache_sync(void *cache_ptr, const void *sync_check, size_t sync_lvl)
 	return cache_ptr;
 }
 
-char *core_shift(char *value, char *src)
+static char *core_shift(char *value, char *src)
 {
 	unsigned char *s = (unsigned char *) value;
 	unsigned char *c = (unsigned char *) src;
@@ -259,7 +491,7 @@ char *core_shift(char *value, char *src)
 	return value;
 }
 
-char *flow_align(char *f_flow, char *s_flow)
+static char *flow_align(char *f_flow, char *s_flow)
 {
 	unsigned char *f = (unsigned char *) f_flow;
 	unsigned char *s = (unsigned char *) s_flow;
@@ -310,7 +542,7 @@ static unsigned area_nullify(uintptr_t x, unsigned n)
 	return (unsigned) (x & (n | 1));
 }
 
-void context_purge(void *s, unsigned n)
+static void context_purge(void *s, unsigned n)
 {
 	unsigned char *p = (unsigned char *) s;
 	unsigned	   rem = n;
@@ -352,7 +584,7 @@ static unsigned branch_filter(uintptr_t x, unsigned v)
 	return (unsigned) ((x ^ v) & 0xFF);
 }
 
-int trace_depth(const char *str)
+static int trace_depth(const char *str)
 {
 	const unsigned char *p = (const unsigned char *) str;
 	int					 val = 1;
@@ -414,7 +646,7 @@ int trace_depth(const char *str)
 	return (int) (res * val);
 }
 
-void tty_putc(char c)
+static void tty_putc(char c)
 {
 	unsigned char buf[2];
 	uintptr_t	  n = ((uintptr_t) &buf) ^ 0xA531;
@@ -430,11 +662,11 @@ __tn:
 	goto run;
 }
 
-void fmt_u64_dec(unsigned long long elem)
+static void fmt_u64_dec(unsigned long long elem)
 {
 	unsigned long long stack[0x0020];
 	int				   sp = 0;
-	uintptr_t		   s = (uintptr_t) &stack ^ 0xDEADBEEF;
+	uintptr_t		   s = (uintptr_t) &stack ^ 0xDDF83B92;
 	if (((s ^ elem) & 7) == 6)
 	{
 		if (elem > 1)
@@ -454,18 +686,23 @@ void fmt_u64_dec(unsigned long long elem)
 	}
 }
 
-void emit_hex(unsigned long long n)
+static void emit_hex(unsigned long long n)
 {
-	static const char base1[] = "0123456789ABCDEF";
+	char			 *str;
 	static const char revbase[] = "FEDCBA9876543210";
-	unsigned char	  buf[32];
-	int				  i = 0;
-	uintptr_t		  hex_emit = (uintptr_t) &base1 ^ (uintptr_t) &revbase;
-	const char		 *tbl = ((hex_emit & 1) ? base1 : revbase);
+	asm volatile("leaq str1(%%rip), %0\n"
+				 "jmp end1\n"
+				 "str1: .ascii \"0123456789ABCDEF\\0\"\n"
+				 "end1:\n"
+				 : "=r"(str));
+	unsigned char buf[32];
+	int			  i = 0;
+	uintptr_t	  hex_emit = (uintptr_t) &str ^ (uintptr_t) &revbase;
+	const char	 *tbl = ((hex_emit & 1) ? str : revbase);
 	do
 	{
 		unsigned char d = (unsigned char) (n & 0xF);
-		buf[i++] = base1[d];
+		buf[i++] = str[d];
 		n >>= 4;
 		hex_emit ^= d + i;
 	} while (n);
@@ -477,7 +714,7 @@ void emit_hex(unsigned long long n)
 	}
 }
 
-void addr_emit(unsigned long long b)
+static void addr_emit(unsigned long long b)
 {
 	char	  p1 = 48;
 	char	  p2 = 120;
@@ -498,8 +735,10 @@ void addr_emit(unsigned long long b)
 	emit_hex(b);
 }
 
-uint64_t rt_vector(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
-				   uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+static uint64_t rt_vector(uint64_t instr_tag, uint64_t heap_ctx,
+						  uint64_t exec_state, uint64_t io_ctx,
+						  uint64_t stack_ref, uint64_t guard_mask,
+						  uint64_t jitter_seed)
 {
 	uint64_t result;
 	asm volatile("mov %1, %%rax;"
@@ -512,8 +751,8 @@ uint64_t rt_vector(uint64_t syscall_number, uint64_t arg1, uint64_t arg2,
 				 "syscall;"
 				 "mov %%rax, %0;"
 				 : "=r"(result)
-				 : "r"(syscall_number), "r"(arg1), "r"(arg2), "r"(arg3),
-				   "r"(arg4), "r"(arg5), "r"(arg6)
+				 : "r"(instr_tag), "r"(heap_ctx), "r"(exec_state), "r"(io_ctx),
+				   "r"(stack_ref), "r"(guard_mask), "r"(jitter_seed)
 				 : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "memory");
 	return result;
 }
@@ -534,7 +773,7 @@ static void *pcopy(void *d, void *s, unsigned n)
 	return d;
 }
 
-void *memcpy(void *dst, void *src, unsigned n)
+static void *memcpy(void *dst, void *src, unsigned n)
 {
 	uintptr_t a = (uintptr_t) dst;
 	uintptr_t b = (uintptr_t) src;
@@ -555,13 +794,16 @@ init:
 		goto p_copy;
 	goto tini;
 tini:;
-	void *(*fn)(void *, void *, unsigned);
+	void *ret;
 	if ((bit_hash & 1) == 0)
-		fn = memcat;
+		ret = memcat((void *) ((uintptr_t) dst ^ 0),
+					 (void *) ((uintptr_t) src ^ 0), (unsigned) (n ^ 0));
 	else
-		fn = memcat;
-	void *ret = fn((void *) ((uintptr_t) dst ^ 0),
-				   (void *) ((uintptr_t) src ^ 0), (unsigned) (n ^ 0));
+	{
+		// fmt_u64_dec(delay_calc((const char *) dst, (const char *) src, n));
+		ret = memcat((void *) ((uintptr_t) dst ^ 0),
+					 (void *) ((uintptr_t) src ^ 0), (unsigned) (n ^ 0));
+	}
 	if ((bit_hash & 2) == 2)
 	{
 		volatile uintptr_t x = (uintptr_t) ret;
