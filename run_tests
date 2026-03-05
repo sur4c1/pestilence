@@ -1,97 +1,166 @@
-#!zsh
+#!/bin/bash
 
-test2=(
-    # hello
-    # /bin/ls
-    # /bin/true
-    # /bin/false
-    /bin/echo
-    # /bin/hostname
-    # /usr/bin/whoami
-    # /usr/bin/id
-    # # /usr/bin/dirname
-    # # /usr/bin/basename
-    # /bin/date
-    # /bin/uname
-    # /bin/pwd
-    # # /bin/cat
-    /usr/bin/stat
-    # /usr/bin/env
-    # # /usr/bin/printf
-    # # /usr/bin/head
-    # # /usr/bin/tail
-    # # /usr/bin/sort
-    # # /usr/bin/uniq
-    # # /usr/bin/wc
-    # # /usr/bin/tr
-    # # /usr/bin/cut
-    # # /usr/bin/seq
-    # /usr/bin/uptime
-    # /usr/bin/free
-    # /usr/bin/df
-    # /usr/bin/du
-    # /usr/bin/which
+TEST_DIR="/tmp/test"
+TIMEOUT=1
+SIGNATURE="Pestilence"
+
+GREEN="\e[32m"
+RED="\e[31m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+RESET="\e[m"
+BOLD="\e[1m"
+
+# ------------------------------------------------
+# Enable / Disable tests by commenting lines
+# ------------------------------------------------
+
+TARGETS=(
+ls
+cat
+cp
+mv
+rm
+mkdir
+rmdir
+touch
+chmod
+chown
+pwd
+whoami
+id
+uname
+hostname
+date
+sleep
+true
+false
+grep
+wc
+head
+tail
+cut
+sort
+uniq
+basename
+dirname
+realpath
+stat
 )
 
-test=(
-    # hello
-    # /bin/ls
-    # /bin/true
-    # /bin/false
-    /bin/echo
-    /bin/hostname
-    /usr/bin/whoami
-    /usr/bin/id
-    # /usr/bin/dirname
-    # /usr/bin/basename
-    /bin/date
-    /bin/uname
-    /bin/pwd
-    # /bin/cat
-    /usr/bin/stat
-    /usr/bin/env
-    # /usr/bin/printf
-    # /usr/bin/head
-    # /usr/bin/tail
-    # /usr/bin/sort
-    # /usr/bin/uniq
-    # /usr/bin/wc
-    # /usr/bin/tr
-    # /usr/bin/cut
-    # /usr/bin/seq
-    /usr/bin/uptime
-    # /usr/bin/free
-    # /usr/bin/df
-    # /usr/bin/du
-    # /usr/bin/which
-)
+# ------------------------------------------------
+# Manual tests
+# ------------------------------------------------
 
-make || exit
-clang -w  test/hello.c -o hello
-rm -rf /tmp/test/
-rm -rf /tmp/test2/
-mkdir -p /tmp/test
-mkdir -p /tmp/test2
+declare -A TESTS
 
-for p in $test
-do
-	cp $p /tmp/test/
+declare -A TESTS
+
+TESTS[ls]="ls /bin | head -n 5"
+TESTS[cat]="echo hello | cat"
+TESTS[cp]="cp /bin/ls /tmp/test_copy && rm -f /tmp/test_copy"
+TESTS[mv]="touch /tmp/test_mv && mv /tmp/test_mv /tmp/test_mv2 && rm -f /tmp/test_mv2"
+TESTS[rm]="touch /tmp/test_rm && rm /tmp/test_rm"
+TESTS[mkdir]="mkdir -p /tmp/test_dir && rmdir /tmp/test_dir"
+TESTS[rmdir]="mkdir -p /tmp/test_dir && rmdir /tmp/test_dir"
+TESTS[touch]="touch /tmp/test_touch && rm -f /tmp/test_touch"
+TESTS[chmod]="touch /tmp/test_perm && chmod 600 /tmp/test_perm && rm -f /tmp/test_perm"
+TESTS[chown]="touch /tmp/test_owner 2>/dev/null || true"
+TESTS[pwd]="pwd"
+TESTS[whoami]="whoami"
+TESTS[id]="id"
+TESTS[uname]="uname -a"
+TESTS[hostname]="hostname"
+TESTS[date]="date +%s"
+TESTS[sleep]="sleep 0"
+TESTS[true]="true"
+TESTS[false]="false"
+TESTS[grep]="printf 'a\nb\n' | grep a"
+TESTS[wc]="printf 'a\nb\nc\n' | wc -l"
+TESTS[head]="ls /bin | head -n 2"
+TESTS[tail]="ls /bin | tail -n 2"
+TESTS[cut]="echo 'a:b:c' | cut -d: -f2"
+TESTS[sort]="printf 'c\nb\na\n' | sort"
+TESTS[uniq]="printf 'a\na\nb\n' | uniq"
+TESTS[basename]="basename /usr/bin/ls"
+TESTS[dirname]="dirname /usr/bin/ls"
+TESTS[realpath]="realpath /bin/ls"
+TESTS[stat]="stat /bin/ls"
+
+# ------------------------------------------------
+# Stats
+# ------------------------------------------------
+
+TOTAL=0
+BEHAVIOR_OK=0
+SIGNATURE_OK=0
+
+rm -r "$TEST_DIR" 2>/dev/null
+mkdir -p "$TEST_DIR"
+
+printf "\n======= Binary Behavior Test =======\n\n"
+
+for bin in "${TARGETS[@]}"; do
+	cp "$(which $bin)" "$TEST_DIR/$bin" 2>/dev/null
 done
 
-# echo "\033[31m\nTesting oldass\033[m"
-# for binary in /tmp/test/*; do
-# 	cp hello /tmp/test2/hello
-# 	</dev/null "$binary"
-# done
+./pestilence
 
-./pestilence || (echo fuck segfaulted && exit)
+for bin in "${TARGETS[@]}"; do
 
-echo "\033[32m\nTesting Norgle'd\033[m"
-for binary in /tmp/test/*; do
-    ("$binary" > /dev/null 2>&1 && (strings "$binary" | grep --silent Pest) &&  echo -n "\033[32mOK\033[m") || echo -n "\033[31mKO\033[m"
-    echo -n " " && basename "$binary"
-    # rm $binary
-	# cp hello /tmp/test2/hello
-	# </dev/null "$binary"
-	# diff hello /tmp/test2/hello
+    OG="/bin/$bin"
+    INF="$TEST_DIR/$bin"
+
+    [ -x "$INF" ] || continue
+
+    ((TOTAL++))
+
+    cmd="${TESTS[$bin]}"
+	if [[ -z "$cmd" ]]; then
+		echo "${YELLOW}⚠ Warning: No test defined for target ${RED}'$bin'${RESET}"
+		continue
+	fi
+
+	printf "${BOLD}%-8s${RESET}  $> ${BLUE}%s${RESET}\n" "$bin" "$cmd"
+
+    cmd_og="${cmd//$bin/$OG}"
+    cmd_inf="${cmd//$bin/$INF}"
+
+    OUT1=$(timeout "$TIMEOUT" bash -c "$cmd_og" 2>/dev/null)
+    RC1=$?
+
+    OUT2=$(timeout "$TIMEOUT" bash -c "$cmd_inf" 2>/dev/null)
+    RC2=$?
+
+    if [ $RC1 -eq 124 ] || [ $RC2 -eq 124 ]; then
+        printf "    behavior: ${YELLOW}TIMEOUT${RESET}\n"
+    else
+        if [ "$OUT1" == "$OUT2" ]; then
+            printf "    behavior: ${GREEN}OK${RESET} | "
+            ((BEHAVIOR_OK++))
+        else
+            printf "    behavior: ${RED}KO${RESET} | "
+        fi
+    fi
+
+    if strings "$INF" | grep -q "$SIGNATURE"; then
+        printf "signature: ${GREEN}OK${RESET}\n"
+        ((SIGNATURE_OK++))
+    else
+        printf "signature: ${RED}KO${RESET}\n"
+    fi
+
 done
+
+# ------------------------------------------------
+# Summary
+# ------------------------------------------------
+
+printf "\n============ SUMMARY ============\n\n"
+
+printf "Total tested binaries :  %d\n" "$TOTAL"
+printf "                         ${GREEN}OK${RESET}   ${RED}KO${RESET}\n"
+printf "Behavior                 ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" "$BEHAVIOR_OK" "$((TOTAL - BEHAVIOR_OK))"
+printf "Signature                ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" "$SIGNATURE_OK" "$((TOTAL - SIGNATURE_OK))"
+
+printf "\n==================================\n\n"
