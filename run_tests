@@ -1,19 +1,21 @@
 #!/bin/bash
 
-printf "\n${BOLD}Compiling...${RESET}\n\n"
-make re || exit
-
-TEST_DIR="/tmp/test"
-TIMEOUT=2
-SIGNATURE="Pestilence"
-
+BOLD="\e[1m"
 GREEN="\e[32m"
 RED="\e[31m"
 YELLOW="\e[33m"
 BLUE="\e[34m"
 PURPLE="\e[35m"
+CYAN="\e[36m"
 RESET="\e[m"
-BOLD="\e[1m"
+
+printf "\n${BOLD}Compiling...${RESET}\n\n"
+make re || exit 1
+
+TEST_DIR="/tmp/test"
+TEST_DIR2="/tmp/test2"
+TIMEOUT=1
+SIGNATURE="Pestilence"
 
 # ------------------------------------------------
 # Enable / Disable tests by commenting lines
@@ -58,8 +60,6 @@ stat
 
 declare -A TESTS
 
-declare -A TESTS
-
 TESTS[ls]="ls /bin | head -n 5"
 TESTS[cat]="echo hello | cat"
 TESTS[cp]="cp /bin/ls /tmp/test_copy && rm -f /tmp/test_copy"
@@ -92,97 +92,271 @@ TESTS[realpath]="realpath /bin/ls"
 TESTS[stat]="stat /bin/ls"
 
 # ------------------------------------------------
-# Stats
+# Global counters
 # ------------------------------------------------
 
 TOTAL=0
 BEHAVIOR_OK=0
 SIGNATURE_OK=0
+ANTIDEBUG_OK=0
+ANTIDEBUG_TOTAL=0
 
-rm -rf "$TEST_DIR"
-rm -rf "$TEST_DIR"2
-mkdir -p "$TEST_DIR"
-mkdir -p "$TEST_DIR"2
+# ------------------------------------------------
+# run_test <bin>
+# Tests the infected binary in TEST_DIR.
+# Updates global TOTAL, BEHAVIOR_OK, SIGNATURE_OK.
+# ------------------------------------------------
 
-printf "\n======= Binary Behavior Test =======\n\n"
+run_test() {
+    local bin="$1"
+    local INF="$TEST_DIR/$bin"
+    local OG
+    OG="$(which "$bin" 2>/dev/null)"
 
-for bin in "${TARGETS[@]}"; do
-	cp "$(which $bin)" "$TEST_DIR/$bin" 2>/dev/null
-done
-
-./pestilence
-
-for bin in "${TARGETS[@]}"; do
-
-    OG="/bin/$bin"
-    INF="$TEST_DIR/$bin"
-
-    [ -x "$INF" ] || continue
+    if [ ! -x "$INF" ]; then
+        printf "  ${YELLOW}⚠ %s: not found or not executable in %s${RESET}\n" "$bin" "$TEST_DIR"
+        return
+    fi
 
     ((TOTAL++))
 
-    cmd="${TESTS[$bin]}"
-	if [[ -z "$cmd" ]]; then
-		echo "${YELLOW}⚠ Warning: No test defined for target ${RED}'$bin'${RESET}"
-		continue
-	fi
+    local cmd="${TESTS[$bin]}"
+    if [[ -z "$cmd" ]]; then
+        printf "  ${YELLOW}⚠ %s: no test defined${RESET}\n" "$bin"
+        return
+    fi
 
+    local cmd_og="${cmd//$bin/$OG}"
+    local cmd_inf="${cmd//$bin/$INF}"
 
-    cmd_og="${cmd//$bin/$OG}"
-    cmd_inf="${cmd//$bin/$INF}"
-	HELLO="/tmp/test2/hello"
-	rm $HELLO
-	cp ./hello $HELLO
+    printf "  ${BOLD}%-10s${RESET} ${BLUE}%s${RESET}\n" "$bin" "$cmd_inf"
 
-	printf "${BOLD}%-8s${RESET}  $> ${BLUE}%s${RESET} | ${PURPLE}%s${RESET}\n" "$bin" "$cmd_og" "$cmd_inf"
-    OUT1=$(timeout "$TIMEOUT" eval $cmd_og 2>/dev/null)
-    RC1=$?
+    local OUT1 OUT2 RC1 RC2
+    OUT1=$(timeout "$TIMEOUT" bash -c "$cmd_og"  2>/dev/null); RC1=$?
+    OUT2=$(timeout "$TIMEOUT" bash -c "$cmd_inf" 2>/dev/null); RC2=$?
+    sleep 1
 
-
-    OUT2=$(timeout "$TIMEOUT" eval $cmd_inf 2>/dev/null)
-    RC2=$?
-	# $cmd_inf
-
-    if [ $RC1 -eq 124 ] || [ $RC2 -eq 124 ]; then
-        printf "    behavior:${YELLOW}TIMEOUT${RESET}\n"
+    if [ "$RC1" -eq 124 ] || [ "$RC2" -eq 124 ]; then
+        printf "    behavior:${YELLOW}TIMEOUT${RESET}    "
+    elif [ "$OUT1" = "$OUT2" ] && [ "$RC1" = "$RC2" ]; then
+        printf "    behavior:${GREEN}OK${RESET}         "
+        ((BEHAVIOR_OK++))
     else
-        if [ "$OUT1" == "$OUT2" ]; then
-            printf "    behavior:${GREEN}OK${RESET} | "
-            ((BEHAVIOR_OK++))
+        printf "    behavior:${RED}KO${RESET}\n"
+        printf "      ${RED}OG : [${BOLD}%s${RESET}${RED}] rc=%d${RESET}\n" "$OUT1" "$RC1"
+        printf "      ${RED}INF: [${BOLD}%s${RESET}${RED}] rc=%d${RESET}\n" "$OUT2" "$RC2"
+        printf "             "
+    fi
+
+    local sig_count
+    sig_count=$(strings "$INF" | grep -c "$SIGNATURE")
+    if [ "$sig_count" -eq 1 ]; then
+        printf "signature:${GREEN}OK${RESET}\n"
+        ((SIGNATURE_OK++))
+    else
+        printf "signature:${RED}KO${RESET} (found %d)\n" "$sig_count"
+    fi
+}
+
+# ------------------------------------------------
+# antidebug_test <label> <infector_path>
+# Drops a fresh clean victim (/bin/echo) into both
+# TEST_DIR and TEST_DIR2, runs the infector under
+# gdb, then verifies the victim has no signature.
+# ------------------------------------------------
+
+antidebug_test() {
+    local label="$1"
+    local infector="$2"
+    local victim_src victim_path_1 victim_path_2 sig_count
+
+    victim_src="$(which echo 2>/dev/null)"
+    victim_path_1="$TEST_DIR/echo"
+    victim_path_2="$TEST_DIR2/echo"
+
+    ((ANTIDEBUG_TOTAL++))
+
+    printf "  ${BOLD}%-38s${RESET} " "$label"
+
+    if [ ! -x "$infector" ]; then
+        printf "${YELLOW}SKIP${RESET} (infector not found)\n"
+        return
+    fi
+
+    cp "$victim_src" "$victim_path_1"
+    cp "$victim_src" "$victim_path_2"
+
+    timeout "$((TIMEOUT * 8))" \
+        gdb -batch \
+            -ex "set follow-fork-mode child" \
+            -ex run \
+            --args "$infector" \
+        </dev/null >/dev/null 2>/dev/null
+
+    sleep 1
+
+    sig_count=$(strings "$victim_path_1" | grep -c "$SIGNATURE")
+    rm -f "$victim_path_1" "$victim_path_2"
+
+    if [ "$sig_count" -eq 0 ]; then
+        printf "${GREEN}OK${RESET} (victim stayed clean)\n"
+        ((ANTIDEBUG_OK++))
+    else
+        printf "${RED}KO${RESET} (victim was infected despite debugger!)\n"
+    fi
+}
+
+# ------------------------------------------------
+# antiprocess_test <label> <infector_path>
+# Spawns a background process named "doom-nukem",
+# runs the infector normally, checks victim is clean.
+# ------------------------------------------------
+
+antiprocess_test() {
+    local label="$1"
+    local infector="$2"
+    local victim_src victim_path_1 victim_path_2 sig_count doom_pid
+
+    victim_src="$(which echo 2>/dev/null)"
+    victim_path_1="$TEST_DIR/echo"
+    victim_path_2="$TEST_DIR2/echo"
+
+    ((ANTIDEBUG_TOTAL++))
+
+    printf "  ${BOLD}%-38s${RESET} " "$label"
+
+    if [ ! -x "$infector" ]; then
+        printf "${YELLOW}SKIP${RESET} (infector not found)\n"
+        return
+    fi
+
+    cp "$victim_src" "$victim_path_1"
+    cp "$victim_src" "$victim_path_2"
+    cp "$(which sleep)" /tmp/doom-nukem
+    /tmp/doom-nukem 30 &
+    doom_pid=$!
+
+    timeout "$((TIMEOUT * 8))" "$infector" </dev/null >/dev/null 2>/dev/null
+
+    sleep 1
+
+    kill "$doom_pid" 2>/dev/null
+    wait "$doom_pid" 2>/dev/null
+    rm -f /tmp/doom-nukem
+
+    sig_count=$(strings "$victim_path_1" | grep -c "$SIGNATURE")
+    rm -f "$victim_path_1" "$victim_path_2"
+
+    if [ "$sig_count" -eq 0 ]; then
+        printf "${GREEN}OK${RESET} (victim stayed clean)\n"
+        ((ANTIDEBUG_OK++))
+    else
+        printf "${RED}KO${RESET} (victim was infected despite doom-nukem running!)\n"
+    fi
+}
+
+# ------------------------------------------------
+# Setup
+# ------------------------------------------------
+
+rm -rf "$TEST_DIR" "$TEST_DIR2"
+mkdir -p "$TEST_DIR" "$TEST_DIR2"
+
+# ------------------------------------------------
+# Chain infection + interleaved testing
+# ------------------------------------------------
+
+printf "\n${BOLD}======= Chain Infection + Behavior Tests =======${RESET}\n"
+
+NUM_TARGETS=${#TARGETS[@]}
+
+for (( i = 0; i < NUM_TARGETS; i += 2 )); do
+
+    bin_a="${TARGETS[$i]}"
+    bin_b=""
+    (( i + 1 < NUM_TARGETS )) && bin_b="${TARGETS[$((i + 1))]}"
+
+    if (( i == 0 )); then
+        infector="$(pwd)/pestilence"
+        infector_label="pestilence"
+    else
+        infector="$TEST_DIR/${TARGETS[$((i - 1))]}"
+        infector_label="${TARGETS[$((i - 1))]}"
+    fi
+
+    src_a="$(which "$bin_a" 2>/dev/null)"
+    if [ -z "$src_a" ]; then
+        printf "\n${YELLOW}⚠ Cannot find '%s', skipping pair${RESET}\n" "$bin_a"
+        continue
+    fi
+    cp "$src_a" "$TEST_DIR/$bin_a"
+    cp "$src_a" "$TEST_DIR2/$bin_a"
+
+    if [ -n "$bin_b" ]; then
+        src_b="$(which "$bin_b" 2>/dev/null)"
+        if [ -n "$src_b" ]; then
+            cp "$src_b" "$TEST_DIR/$bin_b"
+            cp "$src_b" "$TEST_DIR2/$bin_b"
         else
-            printf "\t${RED}OG:  [${BOLD}%s${RESET}${RED}]\n${RESET}" "$OUT1"
-            printf "\t${RED}INF: [${BOLD}%s${RESET}${RED}]\n${RESET}" "$OUT2"
-            exit 1
-            printf "    behavior:${RED}KO${RESET} | "
+            printf "\n${YELLOW}⚠ Cannot find '%s', skipping${RESET}\n" "$bin_b"
+            bin_b=""
         fi
     fi
 
-    if [ $(strings "$INF" | grep "$SIGNATURE" | wc -l) -eq 1 ] ; then
-        printf "signature:${GREEN}OK${RESET} | "
-        ((SIGNATURE_OK++))
+    if [ -n "$bin_b" ]; then
+        printf "\n${BOLD}${CYAN}--- Step $((i / 2 + 1)): ${infector_label} → ${bin_a}, ${bin_b} ---${RESET}\n"
     else
-        printf "signature:${RED}KO${RESET} | "
+        printf "\n${BOLD}${CYAN}--- Step $((i / 2 + 1)): ${infector_label} → ${bin_a} ---${RESET}\n"
     fi
 
-if [ $(strings "$HELLO" | grep "$SIGNATURE" | wc -l) -eq 1 ] ; then
-        printf "hello_signature:${GREEN}OK${RESET}\n"
-        ((SIGNATURE_OK++))
-    else
-        printf "hello_signature:${RED}KO${RESET}\n"
+    if [ ! -x "$infector" ]; then
+        printf "${RED}⚠ Infector '%s' not found or not executable — aborting chain${RESET}\n" "$infector_label"
+        break
     fi
+
+    timeout "$TIMEOUT" "$infector" </dev/null >/dev/null 2>/dev/null
+    sleep 1
+
+    run_test "$bin_a"
+    [ -n "$bin_b" ] && run_test "$bin_b"
 
 done
 
 # ------------------------------------------------
-# Summary
+# Anti-debug + anti-process tests
+# TARGETS[0] (ls) was infected in step 1 of the
+# chain above and is used as the infected infector.
 # ------------------------------------------------
 
-printf "\n============ SUMMARY ============\n\n"
+printf "\n${BOLD}======= Anti-Debug / Anti-Process Tests =======${RESET}\n\n"
 
+if ! command -v gdb &>/dev/null; then
+    printf "${YELLOW}⚠ gdb not found — skipping anti-debug tests${RESET}\n"
+else
+    antidebug_test "pestilence under gdb"                "$(pwd)/pestilence"
+    antidebug_test "infected '${TARGETS[0]}' under gdb"  "$TEST_DIR/${TARGETS[0]}"
+fi
+
+antiprocess_test "pestilence with doom-nukem running"               "$(pwd)/pestilence"
+antiprocess_test "infected '${TARGETS[0]}' with doom-nukem running" "$TEST_DIR/${TARGETS[0]}"
+
+# ------------------------------------------------
+# Final summary
+# ------------------------------------------------
+
+printf "\n${BOLD}============ SUMMARY ============${RESET}\n\n"
 printf "Total tested binaries :  %d\n" "$TOTAL"
 printf "                         ${GREEN}OK${RESET}   ${RED}KO${RESET}\n"
-printf "Behavior                 ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" "$BEHAVIOR_OK" "$((TOTAL - BEHAVIOR_OK))"
-printf "Signature                ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" "$SIGNATURE_OK" "$((TOTAL - SIGNATURE_OK))"
+printf "Behavior                 ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" \
+    "$BEHAVIOR_OK" "$((TOTAL - BEHAVIOR_OK))"
+printf "Signature                ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" \
+    "$SIGNATURE_OK" "$((TOTAL - SIGNATURE_OK))"
 
-printf "\n==================================\n\n"
+if command -v gdb &>/dev/null || [ "$ANTIDEBUG_TOTAL" -gt 0 ]; then
+    printf "Anti-debug/process       ${GREEN}%2d${RESET} | ${RED}%2d${RESET}\n" \
+        "$ANTIDEBUG_OK" "$((ANTIDEBUG_TOTAL - ANTIDEBUG_OK))"
+fi
+
+printf "\n${BOLD}=================================${RESET}\n\n"
+
 exit 0

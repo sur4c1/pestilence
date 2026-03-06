@@ -1,1 +1,1 @@
-SRCS = func pestilence
+SRCS = pestilence

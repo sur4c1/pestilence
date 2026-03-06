@@ -4,13 +4,13 @@ Educationnal project about the creatition of a self-duplicating obfuscated malwa
 
 ## Subject requierements
 
-- Doesn't execute when a specific process (`test`) is running.
+- Doesn't execute when a specific process (`doom-nukem`) is running.
 - Doesn't execute when watched by a debugger
 - Infection routine must be ofuscated
 
 ## Roadmap
 
-- [ ] Check for a `test` process on the machine
-- [ ] Check for a debugger overhead
-- [ ] Find the place to inject malecious code inside the binary
-- [ ] Inject the code and modify the binary
+- [x] Check for a `doom-nukem` process on the machine
+- [x] Check for a debugger overhead
+- [x] Find the place to inject malecious code inside the binary
+- [x] Inject the code and modify the binary

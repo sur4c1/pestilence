@@ -1,3 +1,0 @@
-#!zsh
-
-echo "SRCS =" $(find srcs -name '*.c' | cut -c 6- | sed 's/..$//' ) > source.mk

@@ -35,13 +35,6 @@ RM		 =	@rm -rf
 MKDIR	 =	@mkdir -p
 NASM	 =	@nasm
 
-
-# ASM_DIR	=	libasm/
-# ASM_SRC	=	proc_detach.s proc_spawn.s fs_handle.s fs_enumerate.s fs_query.s \
-# 			fs_release.s vm_release.s vm_reserve.s vm_flush.s io_query.s     \
-# 			io_resize.s vm_resize.s proc_terminate.s io_send.s
-# ASM_OBJ =	$(addprefix $(ASM_DIR), $(ASM_SRC:.s=.o))
-
 bonus: CFLAGS += -DBONUS
 bonus: re
 
@@ -66,11 +59,6 @@ $(ODIR)%.o:  $(SDIR)%.c $(VIRGIN)
 	CYANURE="0x$$(readelf -s  $(VIRGIN) | grep cyanure | awk '{print $$2}')"; \
 	BUBONIK="0x$$(readelf -s  $(VIRGIN) | grep "\b_start\b" | awk '{print $$2}')"; \
 	ECHIDNAE="0x$$(readelf -s  $(VIRGIN) | grep "\bstr4\b" | awk '{print $$2}')"; \
-# 	echo varax: $$VARAX; \
-# 	echo FRENZY: $$FRENZY; \
-# 	echo CYANURE: $$CYANURE; \
-# 	echo BUBONIK: $$BUBONIK; \
-# 	echo ECHIDNAE: $$ECHIDNAE; \
 	$(CC) $(CFLAGS) \
 		-DFRENZY="$$FRENZY" \
 		-DVARAX="$$VARAX"\
@@ -88,9 +76,5 @@ $(NAME): $(OBJS)
 	  --remove-section .comment \
 	  --remove-section .note \
 	 $@
-
-$(NAME_CLEAN):
-
-
 
 .PHONY: all clean fclean re

