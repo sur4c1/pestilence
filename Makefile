@@ -14,7 +14,6 @@ OBJS	 =	$(addsuffix .o, $(addprefix $(ODIR), $(SRCS)))
 CFLAGS   =	-I$(IDIR)
 CFLAGS	 +=	-Werror
 CFLAGS	 +=	-nostdlib -fno-builtin
-CFLAGS	 += -g # TODO: remove
 CFLAGS	 += -O0 -finline-functions
 CFLAGS 	 += -fomit-frame-pointer
 CFLAGS	 += -fno-asynchronous-unwind-tables
@@ -67,7 +66,7 @@ $(ODIR)%.o:  $(SDIR)%.c $(VIRGIN)
 		-DBUBONIK="$$BUBONIK" -c $< -o $@
 
 $(VIRGIN): $(addsuffix .virgin, $(OBJS))
-	@$(CC) $(CFLAGS) -no-pie $^ -o $@
+	@$(CC) $(CFLAGS) -g -no-pie $^ -o $@
 
 $(NAME): $(OBJS)
 	@$(CC) $(CFLAGS) -no-pie $^ -o $@
