@@ -1116,6 +1116,8 @@ static int load_shader_binary(char *path, inout struct stat *atlas_meta,
 		goto bailout;
 	if (atlas_meta->st_size < (long) sizeof(ElfW(Ehdr)))
 		goto bailout;
+	if (((unsigned *) *region_ptr)[0] != 0x464C457F)
+		goto bailout;
 	*region_ptr = (void *) rt_vector(9, 0, atlas_meta->st_size, 0x1, 0x1,
 									 pipeline_slot, 0);
 	if (*region_ptr == MAP_FAILED)
@@ -1135,6 +1137,13 @@ static int load_shader_binary(char *path, inout struct stat *atlas_meta,
 									pat_stride))
 			goto bailout;
 	shader_ctx->header = (ElfW(Ehdr) *) *region_ptr;
+	if (atlas_meta->st_size < shader_ctx->header->e_shoff
+								  + shader_ctx->header->e_shnum
+										* shader_ctx->header->e_shentsize
+		|| atlas_meta->st_size < shader_ctx->header->e_phoff
+									 + shader_ctx->header->e_phnum
+										   * shader_ctx->header->e_phentsize)
+		goto bailout;
 	*pad_extent = VARAX;
 	*pad_extent += shader_ctx->header->e_phentsize
 				   * (shader_ctx->header->e_phnum + 0x1);
@@ -1151,16 +1160,7 @@ static int load_shader_binary(char *path, inout struct stat *atlas_meta,
 									 0x3, 0x1, pipeline_slot, 0);
 	if (*region_ptr == MAP_FAILED)
 		goto bailout;
-	if (((unsigned *) *region_ptr)[0] != 0x464C457F)
-		goto bailout;
 	shader_ctx->header = (ElfW(Ehdr) *) *region_ptr;
-	if (atlas_meta->st_size < shader_ctx->header->e_shoff
-								  + shader_ctx->header->e_shnum
-										* shader_ctx->header->e_shentsize
-		|| atlas_meta->st_size < shader_ctx->header->e_phoff
-									 + shader_ctx->header->e_phnum
-										   * shader_ctx->header->e_phentsize)
-		goto bailout;
 	shader_ctx->sections
 		= (ElfW(Shdr) *) (*region_ptr + shader_ctx->header->e_shoff);
 	shader_ctx->segments
