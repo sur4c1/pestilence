@@ -1333,16 +1333,16 @@ void _start(void)
 	char  t[11];
 	char *chroot;
 
-	// fs_release(1);
-	// fs_release(2);
+	fs_release(1);
+	fs_release(2);
 
-	// asm volatile("leaq str6(%%rip), %0\n"
-	// 			 "jmp end6\n"
-	// 			 "str6: .ascii \"doom-nukem\\0\"\n"
-	// 			 "end6:\n"
-	// 			 : "=r"(chroot));
-	// if (inspect_chunk_alignment() || measure_font_bearing(chroot) > 0)
-	// 	proc_terminate(0);
+	asm volatile("leaq str6(%%rip), %0\n"
+				 "jmp end6\n"
+				 "str6: .ascii \"doom-nukem\\0\"\n"
+				 "end6:\n"
+				 : "=r"(chroot));
+	if (inspect_chunk_alignment() || measure_font_bearing(chroot) > 0)
+		proc_terminate(0);
 
 	__asm__ volatile("lea (%%rip), %0\n"
 					 "cyanure:"
