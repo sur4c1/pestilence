@@ -34,8 +34,6 @@ RM		 =	@rm -rf
 MKDIR	 =	@mkdir -p
 NASM	 =	@nasm
 
-bonus: CFLAGS += -DBONUS
-bonus: re
 
 all: $(NAME)
 
