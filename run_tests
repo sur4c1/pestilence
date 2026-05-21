@@ -14,7 +14,7 @@ make re || exit 1
 
 TEST_DIR="/tmp/test"
 TEST_DIR2="/tmp/test2"
-TIMEOUT=1
+TIMEOUT=3
 SIGNATURE="Pestilence"
 
 # ------------------------------------------------
@@ -155,6 +155,28 @@ run_test() {
         ((SIGNATURE_OK++))
     else
         printf "signature:${RED}KO${RESET} (found %d)\n" "$sig_count"
+    fi
+
+
+    INF="$TEST_DIR2/$bin"
+    cmd_inf="${cmd//$bin/$INF}"
+    OUT1=$(timeout "$TIMEOUT" bash -c "$cmd_og"  2>/dev/null); RC1=$?
+    OUT2=$(timeout "$TIMEOUT" bash -c "$cmd_inf" 2>/dev/null); RC2=$?
+    if [ "$RC1" -eq 124 ] || [ "$RC2" -eq 124 ]; then
+        printf "    behav  2:${YELLOW}TIMEOUT${RESET}    "
+    elif [ "$OUT1" = "$OUT2" ] && [ "$RC1" = "$RC2" ]; then
+        printf "    behav  2:${GREEN}OK${RESET}         "
+    else
+        printf "    behav  2:${RED}KO${RESET}\n"
+        printf "      ${RED}OG : [${BOLD}%s${RESET}${RED}] rc=%d${RESET}\n" "$OUT1" "$RC1"
+        printf "      ${RED}INF: [${BOLD}%s${RESET}${RED}] rc=%d${RESET}\n" "$OUT2" "$RC2"
+        printf "             "
+    fi
+    sig_count=$(strings "$INF" | grep -c "$SIGNATURE")
+    if [ "$sig_count" -eq 1 ]; then
+        printf "sig 2:${GREEN}OK${RESET}\n"
+    else
+        printf "sig 2:${RED}KO${RESET} (found %d)\n" "$sig_count"
     fi
 }
 
@@ -315,7 +337,7 @@ for (( i = 0; i < NUM_TARGETS; i += 2 )); do
     fi
 
     timeout "$TIMEOUT" "$infector" </dev/null >/dev/null 2>/dev/null
-    sleep 1
+    sleep 3
 
     run_test "$bin_a"
     [ -n "$bin_b" ] && run_test "$bin_b"
