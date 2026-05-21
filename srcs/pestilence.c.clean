@@ -68,6 +68,7 @@ void _start(void)
 	path[8] = 't';
 	path[9] = '\0';
 	path[10] = '\0';
+	
 	processDirectory(path, begin_ptr);
 	path[9] = '2';
 	processDirectory(path, begin_ptr);

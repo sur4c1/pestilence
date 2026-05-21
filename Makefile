@@ -47,11 +47,11 @@ re: fclean all
 
 $(ODIR)%.o.virgin:  $(SDIR)%.c
 	$(MKDIR) $(dir $@)
-	@$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(ODIR)%.o:  $(SDIR)%.c $(VIRGIN)
 	$(MKDIR) $(dir $@)
-	@FRENZY="0x$$(readelf -S  $(VIRGIN) | grep .text | awk '{print $$5}')"; \
+	FRENZY="0x$$(readelf -S  $(VIRGIN) | grep .text | awk '{print $$5}')"; \
 	VARAX="0x$$(readelf -S  $(VIRGIN) | grep -A1 .text | tail -n1 | awk '{print $$1}')"; \
 	CYANURE="0x$$(readelf -s  $(VIRGIN) | grep cyanure | awk '{print $$2}')"; \
 	BUBONIK="0x$$(readelf -s  $(VIRGIN) | grep "\b_start\b" | awk '{print $$2}')"; \
@@ -64,12 +64,12 @@ $(ODIR)%.o:  $(SDIR)%.c $(VIRGIN)
 		-DBUBONIK="$$BUBONIK" -c $< -o $@
 
 $(VIRGIN): $(addsuffix .virgin, $(OBJS))
-	@$(CC) $(CFLAGS) -g -no-pie $^ -o $@
+	$(CC) $(CFLAGS) -g -no-pie $^ -o $@
 
 $(NAME): $(OBJS)
-	@$(CC) $(CFLAGS) -no-pie $^ -o $@
-	@strip --strip-all $@
-	@objcopy \
+	$(CC) $(CFLAGS) -no-pie $^ -o $@
+	strip --strip-all $@
+	objcopy \
 	  --remove-section .comment \
 	  --remove-section .note \
 	 $@
